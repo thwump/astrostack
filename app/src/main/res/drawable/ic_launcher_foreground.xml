@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Telescope + star foreground icon for AstroStack -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Star burst in top-right -->
+    <path
+        android:fillColor="#EF5350"
+        android:pathData="M80,20 L82,26 L88,24 L84,29 L90,32 L84,33 L85,40 L80,36 L75,40 L76,33 L70,32 L76,29 L72,24 L78,26 Z" />
+
+    <!-- Telescope body -->
+    <path
+        android:fillColor="#EECCCC"
+        android:pathData="M30,70 L70,50 L72,54 L32,74 Z" />
+
+    <!-- Telescope tube / eyepiece end -->
+    <path
+        android:fillColor="#EECCCC"
+        android:pathData="M26,66 L34,62 L36,66 L28,70 Z" />
+
+    <!-- Objective lens end -->
+    <path
+        android:fillColor="#EF5350"
+        android:pathData="M68,48 L74,44 L78,52 L72,56 Z" />
+
+    <!-- Tripod leg left -->
+    <path
+        android:fillColor="#996666"
+        android:pathData="M36,74 L24,92 L28,92 L38,76 Z" />
+
+    <!-- Tripod leg right -->
+    <path
+        android:fillColor="#996666"
+        android:pathData="M36,74 L48,92 L44,92 L34,76 Z" />
+
+    <!-- Tripod leg center -->
+    <path
+        android:fillColor="#996666"
+        android:pathData="M35,74 L36,92 L38,92 L37,74 Z" />
+
+    <!-- Small stars scattered -->
+    <path
+        android:fillColor="#FFCDD2"
+        android:pathData="M55,30 L56,33 L59,33 L57,35 L58,38 L55,36 L52,38 L53,35 L51,33 L54,33 Z" />
+    <path
+        android:fillColor="#FFCDD2"
+        android:pathData="M40,22 L41,24 L43,24 L41.5,25.5 L42,28 L40,26.5 L38,28 L38.5,25.5 L37,24 L39,24 Z" />
+</vector>

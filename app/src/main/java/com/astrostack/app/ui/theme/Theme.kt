@@ -1,0 +1,49 @@
+package com.astrostack.app.ui.theme
+
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.runtime.Composable
+
+/**
+ * Deep-red dark theme for AstroStack.
+ *
+ * All colours are red-tinted and very dark so astronomers can use their phone
+ * at the telescope without destroying their dark adaptation.
+ */
+private val AstroColorScheme = darkColorScheme(
+    primary             = Astro_Red500,
+    onPrimary           = Astro_OnError,
+    primaryContainer    = Astro_Red800,
+    onPrimaryContainer  = Astro_Red200,
+
+    secondary           = Astro_Red600,
+    onSecondary         = Astro_OnError,
+    secondaryContainer  = Astro_Red900,
+    onSecondaryContainer = Astro_Red400,
+
+    tertiary            = Astro_Red400,
+    onTertiary          = Astro_OnError,
+
+    background          = Astro_Background,
+    onBackground        = Astro_OnBackground,
+
+    surface             = Astro_Surface,
+    onSurface           = Astro_OnSurface,
+    surfaceVariant      = Astro_Surface2,
+    onSurfaceVariant    = Astro_OnSurfaceVariant,
+
+    error               = Astro_Error,
+    onError             = Astro_OnError,
+
+    outline             = Astro_Red900,
+    outlineVariant      = Astro_Surface3,
+)
+
+@Composable
+fun AstroStackTheme(content: @Composable () -> Unit) {
+    MaterialTheme(
+        colorScheme = AstroColorScheme,
+        typography  = androidx.compose.material3.Typography(), // default Material 3 type scale
+        content     = content,
+    )
+}

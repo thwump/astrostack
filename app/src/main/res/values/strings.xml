@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">AstroStack</string>
+    <string name="capture_button">Start Capture</string>
+    <string name="cancel_capture">Cancel</string>
+    <string name="stack_button">Stack Frames</string>
+    <string name="gallery_title">Gallery</string>
+    <string name="stacking_title">Stack Frames</string>
+    <string name="permission_camera_rationale">AstroStack needs camera access to capture RAW astrophotography frames.</string>
+    <string name="no_raw_support">This camera does not support RAW capture</string>
+    <string name="no_sessions">No capture sessions yet</string>
+</resources>

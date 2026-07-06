@@ -1,0 +1,21 @@
+# Local SDK path — machine-specific, never commit
+local.properties
+
+# Gradle build outputs
+.gradle/
+build/
+app/build/
+
+# Android Studio project files
+*.iml
+.idea/
+*.ipr
+*.iws
+captures/
+
+# Keystore files
+*.jks
+*.keystore
+
+# macOS
+.DS_Store

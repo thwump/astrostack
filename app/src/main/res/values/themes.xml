@@ -1,0 +1,11 @@
+<resources>
+    <!-- Base application theme — Compose takes over at runtime, this is the
+         splash/window background only. -->
+    <style name="Theme.AstroStack" parent="android:Theme.Material.Light.NoActionBar">
+        <!-- Dark, near-black window background so there's no white flash on launch -->
+        <item name="android:windowBackground">#0D0505</item>
+        <item name="android:statusBarColor">#0D0505</item>
+        <item name="android:navigationBarColor">#0D0505</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>
