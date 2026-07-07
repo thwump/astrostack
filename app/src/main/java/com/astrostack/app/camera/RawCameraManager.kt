@@ -141,6 +141,8 @@ class RawCameraManager @Inject constructor(
                     val pExpRange = pChars.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE) ?: expRange
                     val pOisModes = pChars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION) ?: oisModes
                     val pHasOis = pOisModes?.contains(CameraCharacteristics.LENS_OPTICAL_STABILIZATION_MODE_ON) == true
+                    val pApertures = pChars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_APERTURES)
+                    val pAperture = pApertures?.firstOrNull() ?: 1.8f
 
                     android.util.Log.i("AstroStack", "Adding Physical Camera Candidate: pid=$pid, logicalId=$id, rawSize=${pLargest.width}x${pLargest.height}")
 
@@ -157,6 +159,7 @@ class RawCameraManager @Inject constructor(
                         hasOis = pHasOis,
                         characteristics = pChars,
                         supportsNightExtension = hasNightExtension,
+                        aperture = pAperture,
                     )
                     candidates.add(Candidate(cap, priority))
                     physicalCandidatesAdded++
@@ -165,7 +168,9 @@ class RawCameraManager @Inject constructor(
 
             // Fallback: If no raw physical sensors were successfully added, add the logical camera device itself
             if (physicalCandidatesAdded == 0 && (hasRawCapability || largest != null)) {
-                android.util.Log.i("AstroStack", "Adding Logical Camera Candidate: id=$id, rawSize=${largest?.width}x${largest?.height}")
+                val apertures = chars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_APERTURES)
+                val aperture = apertures?.firstOrNull() ?: 1.8f
+                
                 val cap = CameraCapabilities(
                     cameraId = id,
                     physicalCameraId = null,
@@ -179,6 +184,7 @@ class RawCameraManager @Inject constructor(
                     hasOis = hasOis,
                     characteristics = chars,
                     supportsNightExtension = hasNightExtension,
+                    aperture = aperture,
                 )
                 candidates.add(Candidate(cap, priority))
             }

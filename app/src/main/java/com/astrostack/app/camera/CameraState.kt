@@ -94,11 +94,18 @@ data class CameraCapabilities(
     val hasOis: Boolean,
     val characteristics: CameraCharacteristics,
     val supportsNightExtension: Boolean,
+    val aperture: Float = 1.8f,
 ) {
     val userLabel: String get() {
         val focalLengths = characteristics.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS)
         val focalLength = focalLengths?.firstOrNull() ?: 4.0f
         val physicalSize = characteristics.get(CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE)
+        val apertures = characteristics.get(CameraCharacteristics.LENS_INFO_AVAILABLE_APERTURES)
+        val aperture = apertures?.firstOrNull() ?: 1.8f
+        
+        val megapixels = (rawSensorWidth * rawSensorHeight) / 1_000_000f
+        val mpStr = String.format(java.util.Locale.US, "%.1fMP", megapixels)
+        
         val label = if (physicalSize != null) {
             val sensorWidth = physicalSize.width
             val sensorHeight = physicalSize.height
@@ -107,12 +114,12 @@ data class CameraCapabilities(
             val cropFactor = diagonal35mm / sensorDiagonal
             val focalLength35 = (focalLength * cropFactor).roundToInt()
             when {
-                focalLength35 < 20 -> "Ultrawide (${focalLength35}mm eq.)"
-                focalLength35 in 20..35 -> "Main (${focalLength35}mm eq.)"
-                else -> "Telephoto (${focalLength35}mm eq.)"
+                focalLength35 < 20 -> "Ultrawide ${focalLength35}mm (f/$aperture, $mpStr)"
+                focalLength35 in 20..35 -> "Main ${focalLength35}mm (f/$aperture, $mpStr)"
+                else -> "Telephoto ${focalLength35}mm (f/$aperture, $mpStr)"
             }
         } else {
-            "Camera $cameraId"
+            "Camera $cameraId ($mpStr)"
         }
         return label
     }

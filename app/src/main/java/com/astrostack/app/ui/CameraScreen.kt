@@ -263,6 +263,15 @@ fun CameraScreen(
                                 )
                             }
                         }
+                        // Lens details helper text advice
+                        uiState.capabilities?.let { active ->
+                            Text(
+                                text = "💡 Tip: Lower f-numbers (like f/${active.aperture}) gather more light for faster stacking. Higher megapixel count captures finer detail but may increase pixel read noise.",
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.65f),
+                                fontSize = 9.sp,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
                     }
                 }
 
