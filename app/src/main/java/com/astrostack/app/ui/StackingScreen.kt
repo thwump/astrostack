@@ -20,11 +20,18 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import android.content.Context
+
 import com.astrostack.app.stacking.StackingAlgorithm
+import com.astrostack.app.stacking.DriftHandling
 import com.astrostack.app.viewmodel.StackingUiState
 import com.astrostack.app.viewmodel.StackingViewModel
+import kotlin.math.roundToInt
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,6 +79,8 @@ fun StackingScreen(
                         onAlgorithmSelected = viewModel::setAlgorithm,
                         onKappaChanged = viewModel::setKappa,
                         onAlignChanged = viewModel::setAlignFrames,
+                        onDriftHandlingSelected = viewModel::setDriftHandling,
+                        onMinStarCountChanged = viewModel::setMinStarCount,
                         onStartStacking = viewModel::startStacking,
                     )
 
@@ -96,6 +105,8 @@ private fun ReadyContent(
     onAlgorithmSelected: (StackingAlgorithm) -> Unit,
     onKappaChanged: (Float) -> Unit,
     onAlignChanged: (Boolean) -> Unit,
+    onDriftHandlingSelected: (DriftHandling) -> Unit,
+    onMinStarCountChanged: (Int) -> Unit,
     onStartStacking: () -> Unit,
 ) {
     Column(
@@ -130,6 +141,38 @@ private fun ReadyContent(
                 Text("Correct for drift between frames", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
             }
             Switch(checked = state.config.alignFrames, onCheckedChange = onAlignChanged)
+        }
+
+        // Drift Handling selector
+        if (state.config.alignFrames) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Drift Handling Mode", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                DriftHandling.entries.forEach { mode ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = mode == state.config.driftHandling, onClick = { onDriftHandlingSelected(mode) })
+                        Spacer(Modifier.width(8.dp))
+                        Column {
+                            Text(mode.displayName, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                            Text(mode.description, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+        }
+
+        // Quality Rejection Threshold (Minimum Star Count)
+        Column {
+            Text("Quality Filter: Min Stars = ${state.config.minStarCount}", fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+            Text("Rejects frames that have fewer stars detected.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Slider(
+                value = state.config.minStarCount.toFloat(),
+                onValueChange = { onMinStarCountChanged(it.roundToInt()) },
+                valueRange = 1f..30f,
+                steps = 28,
+            )
         }
 
         Spacer(Modifier.height(8.dp))
@@ -223,12 +266,15 @@ private fun ResultContent(
     viewModel: StackingViewModel,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("astrostack_prefs", android.content.Context.MODE_PRIVATE) }
+    var apiKey by remember { mutableStateOf(prefs.getString("astrometry_api_key", "") ?: "") }
 
     // Show snackbar when publicPath changes (save completes)
     LaunchedEffect(state.publicPath) {
         if (state.publicPath != null) {
             snackbarHostState.showSnackbar(
-                message = "Saved to Pictures/AstroStack ✓",
+                message = "Export saved to Pictures/AstroStack ✓",
                 duration = SnackbarDuration.Short,
             )
         }
@@ -252,37 +298,105 @@ private fun ResultContent(
                     .clip(RoundedCornerShape(12.dp)),
             )
 
-            Text("Saved to:\n${state.resultPath}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+            Text("Internal save path:\n${state.resultPath}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
 
-            // Save to Gallery button
-            Button(
-                onClick = { viewModel.saveToGallery() },
-                enabled = !state.isSavingToGallery && state.publicPath == null,
+            // ── Export Format Buttons ──────────────────────────────────────────
+            Text("Export Result", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground)
+            Row(
                 modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                if (state.isSavingToGallery) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary,
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text("Saving…")
-                } else if (state.publicPath != null) {
-                    Icon(Icons.Filled.Share, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Saved to Gallery ✓")
-                } else {
-                    Icon(Icons.Filled.Share, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Save to Gallery")
+                listOf("PNG", "TIFF", "FITS").forEach { format ->
+                    Button(
+                        onClick = { viewModel.saveToGallery(format) },
+                        enabled = !state.isSavingToGallery,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(format, fontSize = 12.sp)
+                    }
                 }
             }
+            if (state.isSavingToGallery) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Exporting to Pictures/AstroStack...", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+
+            // ── Plate Solving Section ──────────────────────────────────────────
+            HorizontalDivider()
+            Text("Identify Celestial Objects", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground)
+            
+            val solveState = state.plateSolveState
+            if (solveState.isSolving) {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Plate Solving Active...", fontWeight = FontWeight.Medium)
+                        Text(solveState.status, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    }
+                }
+            } else if (solveState.results != null) {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Identified Objects in Frame:", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        if (solveState.results.isEmpty()) {
+                            Text("No catalog objects identified in this area of the sky.", fontSize = 13.sp)
+                        } else {
+                            solveState.results.forEach { name ->
+                                Text("• $name", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            }
+                        }
+                    }
+                }
+            } else {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = apiKey,
+                            onValueChange = {
+                                apiKey = it
+                                prefs.edit().putString("astrometry_api_key", it).apply()
+                            },
+                            label = { Text("Astrometry.net API Key (Optional)") },
+                            placeholder = { Text("Enter key to use online solver") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+                        Button(
+                            onClick = { viewModel.runPlateSolve(apiKey) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Run Plate Solver")
+                        }
+                        Text(
+                            text = "Leave API key blank to run in offline Demo solver mode.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 11.sp
+                        )
+                        if (solveState.error != null) {
+                            Text(
+                                text = "Error: ${solveState.error}",
+                                color = MaterialTheme.colorScheme.error,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
 
             Button(onClick = onNavigateBack, modifier = Modifier.fillMaxWidth()) {
                 Text("Done")
             }
         }
+
 
         SnackbarHost(
             hostState = snackbarHostState,

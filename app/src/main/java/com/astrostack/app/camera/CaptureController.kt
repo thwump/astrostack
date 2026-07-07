@@ -2,10 +2,17 @@ package com.astrostack.app.camera
 
 import android.Manifest
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.view.Surface
 import androidx.annotation.RequiresPermission
 import com.astrostack.app.data.ImageRepository
+import com.astrostack.app.stacking.StarAligner
+import com.astrostack.app.stacking.HistogramStretch
+import com.astrostack.app.stacking.ImageStacker
+import java.io.FileOutputStream
 import dagger.hilt.android.qualifiers.ApplicationContext
+
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -33,6 +40,8 @@ class CaptureController @Inject constructor(
     @ApplicationContext private val context: Context,
     private val cameraManager: RawCameraManager,
     private val repository: ImageRepository,
+    private val starAligner: StarAligner,
+    private val histogramStretch: HistogramStretch,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -46,14 +55,32 @@ class CaptureController @Inject constructor(
     private val _capabilities = MutableStateFlow<CameraCapabilities?>(null)
     val capabilitiesFlow: StateFlow<CameraCapabilities?> = _capabilities.asStateFlow()
 
-    // Populated after openCamera (kept for legacy access)
+    // Live preview stack generated in real-time
+    private val _liveStackedBitmap = MutableStateFlow<Bitmap?>(null)
+    val liveStackedBitmap: StateFlow<Bitmap?> = _liveStackedBitmap.asStateFlow()
+
+
+    private var activePreviewSurface: Surface? = null
+    private var isAutoFocusEnabled = false
     var capabilities: CameraCapabilities? = null
         private set
+
+
+    fun setAutoFocusEnabled(enabled: Boolean) {
+        isAutoFocusEnabled = enabled
+        val surface = activePreviewSurface ?: return
+        try {
+            cameraManager.startPreview(surface, enabled)
+        } catch (e: Exception) {
+            android.util.Log.e("AstroStack", "Failed to update preview focus", e)
+        }
+    }
 
     // ─── Lifecycle ────────────────────────────────────────────────────────────
 
     @RequiresPermission(Manifest.permission.CAMERA)
     fun openCamera(previewSurface: Surface) {
+        activePreviewSurface = previewSurface
         scope.launch {
             try {
                 val caps = withContext(Dispatchers.IO) {
@@ -68,7 +95,7 @@ class CaptureController @Inject constructor(
                 withContext(Dispatchers.IO) {
                     cameraManager.openCamera(caps, previewSurface)
                 }
-                cameraManager.startPreview(previewSurface)
+                cameraManager.startPreview(previewSurface, isAutoFocusEnabled)
                 _previewState.value = PreviewState.Active
             } catch (e: Exception) {
                 _previewState.value = PreviewState.Error(e.message ?: "Unknown camera error")
@@ -77,84 +104,378 @@ class CaptureController @Inject constructor(
     }
 
     fun closeCamera() {
+        activePreviewSurface = null
         cameraManager.close()
         _previewState.value = PreviewState.Loading
     }
 
+    private var captureJob: kotlinx.coroutines.Job? = null
+    private var currentSessionId: Long? = null
+    private var currentOutputDir: File? = null
+    private var lastSettings: CaptureSettings? = null
+    private var liveStackedCount = 0
+
     // ─── Capture session ──────────────────────────────────────────────────────
 
     /**
-     * Starts a capture session with the given [settings].
-     * Captures [CaptureSettings.frameCount] RAW frames, saves them as DNG files,
-     * and creates a session record in the database.
+     * Starts a continuous capture session with the given [settings].
+     * Captures RAW frames indefinitely until stopCaptureSession() or cancelSession() is called.
      */
     @RequiresPermission(Manifest.permission.CAMERA)
     fun startCaptureSession(settings: CaptureSettings) {
         if (_sessionState.value is CaptureSessionState.Capturing) return
 
-        scope.launch {
+        lastSettings = settings
+        liveStackedCount = 0
+        clearLiveStack()
+
+        captureJob = scope.launch {
             val sessionId: Long
             val outputDir: File
 
-            withContext(Dispatchers.IO) {
-                // Create output directory for this session
-                val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-                outputDir = File(context.filesDir, "captures/session_$timestamp").also { it.mkdirs() }
-                // Insert session record
-                sessionId = repository.createSession(
-                    name = "Session $timestamp",
-                    frameCount = settings.frameCount,
-                    iso = settings.iso,
-                    exposureNs = settings.exposureTimeNs,
-                    directoryPath = outputDir.absolutePath,
-                )
-            }
+            var totalCaptured = 0
+            var totalStacked = 0
+            var totalRejected = 0
 
-            for (frameIndex in 0 until settings.frameCount) {
-                val fileName = "frame_%03d.dng".format(frameIndex + 1)
-                val outputFile = File(outputDir, fileName)
+            var referenceStars: List<com.astrostack.app.stacking.StarAligner.Star>? = null
+            var liveAccumulator: FloatArray? = null
+            var liveWidth = 0
+            var liveHeight = 0
 
-                _sessionState.value = CaptureSessionState.Capturing(
-                    framesCompleted = frameIndex,
-                    framesTotal = settings.frameCount,
-                    currentFilePath = outputFile.absolutePath,
-                )
+            var diagWriter: java.io.PrintWriter? = null
 
-                try {
+            try {
+                withContext(Dispatchers.IO) {
+                    val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+                    outputDir = File(context.filesDir, "captures/session_$timestamp").also { it.mkdirs() }
+                    currentOutputDir = outputDir
+
+                    // Create diagnostics file
+                    val diagnosticsFile = File(outputDir, "alignment_diagnostics.txt")
+                    diagWriter = java.io.PrintWriter(java.io.FileWriter(diagnosticsFile))
+                    diagWriter?.println("--- Stacking Session Diagnostics ---")
+                    diagWriter?.println("Timestamp: $timestamp")
+                    diagWriter?.println("Settings: $settings")
+                    diagWriter?.flush()
+
+                    // Insert session record
+                    sessionId = repository.createSession(
+                        name = "Session $timestamp",
+                        frameCount = 0, // dynamic
+                        iso = settings.iso,
+                        exposureNs = settings.exposureTimeNs,
+                        directoryPath = outputDir.absolutePath,
+                    )
+                    currentSessionId = sessionId
+                }
+
+                while (coroutineContext[kotlinx.coroutines.Job]?.isActive == true) {
+                    totalCaptured++
+                    val fileName = "frame_%03d.dng".format(totalCaptured)
+                    val outputFile = File(outputDir, fileName)
+
+                    // Post capturing status update with current stats
+                    _sessionState.value = CaptureSessionState.Capturing(
+                        framesCaptured = totalCaptured,
+                        framesStacked = totalStacked,
+                        framesRejected = totalRejected,
+                        currentFilePath = outputFile.absolutePath,
+                    )
+
+                    // 1. Capture the DNG frame
                     withContext(Dispatchers.IO) {
                         cameraManager.captureAndSaveDng(
                             settings = settings,
                             outputFile = outputFile,
-                            onShutterCallback = { /* play shutter sound if desired */ },
-                        )
-                        repository.addFrame(
-                            sessionId = sessionId,
-                            filePath = outputFile.absolutePath,
-                            frameIndex = frameIndex,
+                            onShutterCallback = { /* Shutter sound optional */ },
                         )
                     }
-                } catch (e: Exception) {
-                    _sessionState.value = CaptureSessionState.Error(
-                        message = "Frame ${frameIndex + 1} failed: ${e.message}",
-                        cause = e,
+
+                    // 2. Perform live stacking/alignment in background thread sequentially to avoid races
+                    if (settings.stackPhotos) {
+                        val stackSuccess = withContext(Dispatchers.Default) {
+                            try {
+                                val opts = BitmapFactory.Options().apply {
+                                    inSampleSize = 4
+                                    inPreferredConfig = Bitmap.Config.ARGB_8888
+                                }
+                                val bmp = BitmapFactory.decodeFile(outputFile.absolutePath, opts) ?: return@withContext false
+                                
+                                val stars = starAligner.detectStars(bmp, starThreshold = settings.starThreshold, maxStars = 50)
+                                if (stars.size < settings.minStarCount) {
+                                    bmp.recycle()
+                                    val msg = "Frame $totalCaptured: REJECTED. Detected ${stars.size} stars < minimum ${settings.minStarCount}."
+                                    android.util.Log.w("AstroStack", msg)
+                                    withContext(Dispatchers.IO) {
+                                        diagWriter?.println(msg)
+                                        diagWriter?.flush()
+                                    }
+                                    return@withContext false // Rejected
+                                }
+
+                                if (liveAccumulator == null || referenceStars == null) {
+                                    // Init accumulator
+                                    liveWidth = bmp.width
+                                    liveHeight = bmp.height
+                                    val size = liveWidth * liveHeight
+                                    val pixels = IntArray(size)
+                                    bmp.getPixels(pixels, 0, liveWidth, 0, 0, liveWidth, liveHeight)
+                                    
+                                    val floats = FloatArray(size * 3)
+                                    for (i in 0 until size) {
+                                        val pix = pixels[i]
+                                        val r = ((pix shr 16) and 0xFF) / 255f
+                                        val g = ((pix shr 8) and 0xFF) / 255f
+                                        val b = (pix and 0xFF) / 255f
+                                        floats[i * 3] = if (r <= 0.04045f) r / 12.92f else Math.pow(((r + 0.055) / 1.055), 2.4).toFloat()
+                                        floats[i * 3 + 1] = if (g <= 0.04045f) g / 12.92f else Math.pow(((g + 0.055) / 1.055), 2.4).toFloat()
+                                        floats[i * 3 + 2] = if (b <= 0.04045f) b / 12.92f else Math.pow(((b + 0.055) / 1.055), 2.4).toFloat()
+                                    }
+                                    
+                                    liveAccumulator = floats
+                                    referenceStars = stars
+                                    liveStackedCount = 1
+                                    
+                                    val stretchBmp = Bitmap.createBitmap(liveWidth, liveHeight, Bitmap.Config.ARGB_8888)
+                                    stretchBmp.setPixels(pixels, 0, liveWidth, 0, 0, liveWidth, liveHeight)
+                                    val stretched = histogramStretch.autoStretch(stretchBmp)
+                                    if (stretched !== stretchBmp) stretchBmp.recycle()
+                                    
+                                    _liveStackedBitmap.value = stretched
+                                    bmp.recycle()
+
+                                    val msg = "Frame $totalCaptured: INITIALIZED reference frame. Detected ${stars.size} stars."
+                                    android.util.Log.d("AstroStack", msg)
+                                    withContext(Dispatchers.IO) {
+                                        diagWriter?.println(msg)
+                                        diagWriter?.flush()
+                                    }
+                                } else {
+                                    val offset = starAligner.computeTranslation(referenceStars!!, stars)
+                                    val qual = starAligner.alignmentQuality(referenceStars!!, stars)
+                                    val msg = "Frame $totalCaptured: ALIGNED. Offset = (${offset.x}, ${offset.y}), Match Quality = ${(qual * 100).toInt()}% (Detected ${stars.size} stars)."
+                                    android.util.Log.d("AstroStack", msg)
+                                    withContext(Dispatchers.IO) {
+                                        diagWriter?.println(msg)
+                                        diagWriter?.flush()
+                                    }
+
+                                    val alignedBmp = if (offset.x != 0f || offset.y != 0f) {
+                                        val dst = Bitmap.createBitmap(liveWidth, liveHeight, Bitmap.Config.ARGB_8888)
+                                        val canvas = android.graphics.Canvas(dst)
+                                        val matrix = android.graphics.Matrix().also { it.setTranslate(offset.x, offset.y) }
+                                        canvas.drawBitmap(bmp, matrix, android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG))
+                                        dst
+                                    } else {
+                                        bmp
+                                    }
+
+                                    val size = liveWidth * liveHeight
+                                    val pixels = IntArray(size)
+                                    alignedBmp.getPixels(pixels, 0, liveWidth, 0, 0, liveWidth, liveHeight)
+                                    
+                                    val count = liveStackedCount
+                                    val acc = liveAccumulator!!
+                                    for (i in 0 until size) {
+                                        val pix = pixels[i]
+                                        val alpha = (pix shr 24) and 0xFF
+                                        if (alpha == 0) continue
+
+                                        val r = ((pix shr 16) and 0xFF) / 255f
+                                        val g = ((pix shr 8) and 0xFF) / 255f
+                                        val b = (pix and 0xFF) / 255f
+                                        
+                                        val lr = if (r <= 0.04045f) r / 12.92f else Math.pow(((r + 0.055) / 1.055), 2.4).toFloat()
+                                        val lg = if (g <= 0.04045f) g / 12.92f else Math.pow(((g + 0.055) / 1.055), 2.4).toFloat()
+                                        val lb = if (b <= 0.04045f) b / 12.92f else Math.pow(((b + 0.055) / 1.055), 2.4).toFloat()
+
+                                        acc[i * 3] = (acc[i * 3] * count + lr) / (count + 1)
+                                        acc[i * 3 + 1] = (acc[i * 3 + 1] * count + lg) / (count + 1)
+                                        acc[i * 3 + 2] = (acc[i * 3 + 2] * count + lb) / (count + 1)
+                                    }
+                                    
+                                    liveStackedCount++
+
+                                    val displayPixels = IntArray(size)
+                                    for (i in 0 until size) {
+                                        val lr = acc[i * 3]
+                                        val lg = acc[i * 3 + 1]
+                                        val lb = acc[i * 3 + 2]
+                                        
+                                        val r = if (lr <= 0.0031308f) lr * 12.92f else 1.055f * Math.pow(lr.toDouble(), 1.0 / 2.4).toFloat() - 0.055f
+                                        val g = if (lg <= 0.0031308f) lg * 12.92f else 1.055f * Math.pow(lg.toDouble(), 1.0 / 2.4).toFloat() - 0.055f
+                                        val b = if (lb <= 0.0031308f) lb * 12.92f else 1.055f * Math.pow(lb.toDouble(), 1.0 / 2.4).toFloat() - 0.055f
+                                        
+                                        val ri = (r.coerceIn(0f, 1f) * 255 + 0.5f).toInt()
+                                        val gi = (g.coerceIn(0f, 1f) * 255 + 0.5f).toInt()
+                                        val bi = (b.coerceIn(0f, 1f) * 255 + 0.5f).toInt()
+                                        displayPixels[i] = (0xFF shl 24) or (ri shl 16) or (gi shl 8) or bi
+                                    }
+                                    
+                                    val displayBmp = Bitmap.createBitmap(liveWidth, liveHeight, Bitmap.Config.ARGB_8888)
+                                    displayBmp.setPixels(displayPixels, 0, liveWidth, 0, 0, liveWidth, liveHeight)
+                                    
+                                    val stretched = histogramStretch.autoStretch(displayBmp)
+                                    if (stretched !== displayBmp) displayBmp.recycle()
+                                    
+                                    val oldBmp = _liveStackedBitmap.value
+                                    _liveStackedBitmap.value = stretched
+                                    oldBmp?.recycle()
+
+                                    if (alignedBmp !== bmp) alignedBmp.recycle()
+                                    bmp.recycle()
+                                }
+                                true
+                            } catch (e: Exception) {
+                                android.util.Log.e("AstroStack", "Error during live frame integration", e)
+                                false
+                            }
+                        }
+
+                        if (stackSuccess) {
+                            totalStacked++
+                        } else {
+                            totalRejected++
+                        }
+                    }
+
+                    // 3. Save DNG metadata or Delete from disk to preserve space
+                    if (settings.saveAllPhotos) {
+                        withContext(Dispatchers.IO) {
+                            repository.addFrame(
+                                sessionId = sessionId,
+                                filePath = outputFile.absolutePath,
+                                frameIndex = totalCaptured - 1,
+                            )
+                        }
+                    } else {
+                        // Delete frame file immediately since we don't save sub-frames
+                        outputFile.delete()
+                    }
+
+                    // Push final frame statistics for UI reflection
+                    _sessionState.value = CaptureSessionState.Capturing(
+                        framesCaptured = totalCaptured,
+                        framesStacked = totalStacked,
+                        framesRejected = totalRejected,
+                        currentFilePath = outputFile.absolutePath,
                     )
-                    return@launch
+                }
+            } catch (e: Exception) {
+                _sessionState.value = CaptureSessionState.Error(
+                    message = "Capture loop interrupted: ${e.message}",
+                    cause = e,
+                )
+            } finally {
+                withContext(Dispatchers.IO) {
+                    try {
+                        diagWriter?.println("Session ended. Integrated $totalStacked frames, rejected $totalRejected frames.")
+                        diagWriter?.close()
+                    } catch (e: Exception) {}
                 }
             }
+        }
+    }
 
-            _sessionState.value = CaptureSessionState.Done(
-                sessionId = sessionId,
-                frameCount = settings.frameCount,
-            )
+    /**
+     * Stops the continuous capture session and compiles the final high-resolution stacked image.
+     */
+    fun stopCaptureSession() {
+        val job = captureJob
+        captureJob = null
+        job?.cancel()
+
+        val state = _sessionState.value as? CaptureSessionState.Capturing ?: return
+        val sessionId = currentSessionId ?: return
+        val settings = lastSettings ?: return
+
+        scope.launch {
+            try {
+                // Show loading indicator
+                _previewState.value = PreviewState.Loading
+
+                val finalBmp = if (settings.saveAllPhotos && settings.stackPhotos) {
+                    // Full resolution stack from saved DNGs
+                    val files = repository.getDngFilesForSession(sessionId)
+                    if (files.size >= 2) {
+                        withContext(Dispatchers.Default) {
+                            val config = com.astrostack.app.stacking.StackingConfig(
+                                driftHandling = settings.driftHandling,
+                                minStarCount = settings.minStarCount,
+                            )
+                            starAligner.let {
+                                ImageStacker(starAligner, histogramStretch).stack(
+                                    files = files,
+                                    config = config,
+                                    onProgress = {}
+                                )
+                            }
+                        }
+                    } else {
+                        // Fallback to live stretched preview if not enough frames
+                        _liveStackedBitmap.value?.copy(Bitmap.Config.ARGB_8888, true)
+                            ?: throw Exception("No stacked preview available.")
+                    }
+                } else if (settings.stackPhotos) {
+                    // Save in-memory live stacked preview
+                    _liveStackedBitmap.value?.copy(Bitmap.Config.ARGB_8888, true)
+                        ?: throw Exception("No stacked preview available.")
+                } else {
+                    // No stacking was requested; just exit without final result
+                    _sessionState.value = CaptureSessionState.Idle
+                    clearLiveStack()
+                    return@launch
+                }
+
+                // Save final output PNG to local app storage
+                val outFile = withContext(Dispatchers.IO) {
+                    val dir = repository.getStackedOutputDir()
+                    val ts = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+                    val file = File(dir, "stacked_${sessionId}_$ts.png")
+                    FileOutputStream(file).use { out ->
+                        finalBmp.compress(Bitmap.CompressFormat.PNG, 100, out)
+                    }
+                    repository.saveStackedResult(
+                        sessionId = sessionId,
+                        imagePath = file.absolutePath,
+                        algorithm = "LIVE_MEAN",
+                    )
+                    file
+                }
+
+                _sessionState.value = CaptureSessionState.Done(
+                    sessionId = sessionId,
+                    frameCount = liveStackedCount,
+                )
+            } catch (e: Exception) {
+                _sessionState.value = CaptureSessionState.Error(
+                    message = "Failed to compile final stack: ${e.message}",
+                    cause = e,
+                )
+            }
         }
     }
 
     fun cancelSession() {
-        // cancellation is handled implicitly when the coroutine scope is cleared
+        val job = captureJob
+        captureJob = null
+        job?.cancel()
         _sessionState.value = CaptureSessionState.Idle
+        clearLiveStack()
     }
 
     fun resetSessionState() {
+        val job = captureJob
+        captureJob = null
+        job?.cancel()
         _sessionState.value = CaptureSessionState.Idle
+        clearLiveStack()
+    }
+
+    private fun clearLiveStack() {
+        val oldBmp = _liveStackedBitmap.value
+        _liveStackedBitmap.value = null
+        oldBmp?.recycle()
     }
 }
+

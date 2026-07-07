@@ -145,4 +145,54 @@ class ImageRepository @Inject constructor(
             null
         }
     }
+
+    /**
+     * Saves raw bytes of an exported file (TIFF, FITS) into the public **Pictures/AstroStack** folder.
+     */
+    suspend fun saveExportFileToPublicPictures(
+        displayName: String,
+        mimeType: String,
+        extension: String,
+        writeBlock: (OutputStream) -> Unit
+    ): String? {
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val values = ContentValues().apply {
+                    put(MediaStore.Images.Media.DISPLAY_NAME, "$displayName.$extension")
+                    put(MediaStore.Images.Media.MIME_TYPE, mimeType)
+                    put(MediaStore.Images.Media.RELATIVE_PATH,
+                        "${Environment.DIRECTORY_PICTURES}/AstroStack")
+                    put(MediaStore.Images.Media.IS_PENDING, 1)
+                }
+                val resolver = context.contentResolver
+                val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+                    ?: return null
+                resolver.openOutputStream(uri)?.use { out ->
+                    writeBlock(out)
+                }
+                values.clear()
+                values.put(MediaStore.Images.Media.IS_PENDING, 0)
+                resolver.update(uri, values, null, null)
+                uri.toString()
+            } else {
+                @Suppress("DEPRECATION")
+                val dir = File(
+                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES),
+                    "AstroStack"
+                ).also { it.mkdirs() }
+                val file = File(dir, "$displayName.$extension")
+                FileOutputStream(file).use { out ->
+                    writeBlock(out)
+                }
+                android.media.MediaScannerConnection.scanFile(
+                    context, arrayOf(file.absolutePath), arrayOf(mimeType), null
+                )
+                file.absolutePath
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("AstroStack", "Failed to save export file $extension to public Pictures", e)
+            null
+        }
+    }
 }
+

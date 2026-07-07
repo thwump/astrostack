@@ -61,6 +61,21 @@ enum class StackingAlgorithm(val displayName: String, val description: String) {
     ),
 }
 
+enum class DriftHandling(val displayName: String, val description: String) {
+    NONE(
+        displayName = "None",
+        description = "Keep original boundaries (out-of-bounds area ignored)."
+    ),
+    CROP(
+        displayName = "Crop",
+        description = "Crop to the overlapping region common to all frames."
+    ),
+    MOSAIC(
+        displayName = "Mosaic",
+        description = "Expand canvas to fit all shifted frames."
+    )
+}
+
 /**
  * Configuration for a stacking run.
  */
@@ -81,4 +96,11 @@ data class StackingConfig(
      * Useful for testing (known pixel values) or when manual stretch is preferred.
      */
     val skipStretch: Boolean = false,
+    /** Drift handling mode (Crop, Mosaic, None) */
+    val driftHandling: DriftHandling = DriftHandling.CROP,
+    /** Minimum number of stars required to stack a frame (quality rejection). */
+    val minStarCount: Int = 8,
+    /** Star detection threshold sensitivity [20, 255] */
+    val starThreshold: Int = 180,
 )
+

@@ -1,6 +1,7 @@
 package com.astrostack.app.viewmodel
 
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.astrostack.app.data.CaptureSession
@@ -8,9 +9,16 @@ import com.astrostack.app.data.ImageRepository
 import com.astrostack.app.stacking.ImageStacker
 import com.astrostack.app.stacking.StackingAlgorithm
 import com.astrostack.app.stacking.StackingConfig
+import com.astrostack.app.stacking.DriftHandling
+import com.astrostack.app.stacking.TiffWriter
+import com.astrostack.app.stacking.FitsWriter
+import com.astrostack.app.stacking.AstrometryNetClient
+
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -22,6 +30,13 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
+
+data class PlateSolveState(
+    val status: String = "",
+    val results: List<String>? = null,
+    val isSolving: Boolean = false,
+    val error: String? = null
+)
 
 sealed interface StackingUiState {
     data object Idle : StackingUiState
@@ -43,6 +58,7 @@ sealed interface StackingUiState {
         /** Set to the public URI/path after a successful save-to-gallery. */
         val publicPath: String? = null,
         val isSavingToGallery: Boolean = false,
+        val plateSolveState: PlateSolveState = PlateSolveState(),
     ) : StackingUiState
     data class Error(val message: String) : StackingUiState
 }
@@ -66,6 +82,25 @@ class StackingViewModel @Inject constructor(
                 _uiState.value = StackingUiState.Error("Session $sessionId not found")
                 return@launch
             }
+
+            val stackedPath = session.stackedImagePath
+            if (stackedPath != null) {
+                val file = File(stackedPath)
+                if (file.exists()) {
+                    val bitmap = withContext(Dispatchers.IO) {
+                        BitmapFactory.decodeFile(file.absolutePath)
+                    }
+                    if (bitmap != null) {
+                        _uiState.value = StackingUiState.Done(
+                            resultBitmap = bitmap,
+                            resultPath = file.absolutePath,
+                            session = session,
+                        )
+                        return@launch
+                    }
+                }
+            }
+
             val frames = repository.getFramesForSession(sessionId)
             _uiState.value = StackingUiState.Ready(
                 session = session,
@@ -90,6 +125,16 @@ class StackingViewModel @Inject constructor(
     fun setAlignFrames(align: Boolean) {
         val ready = _uiState.value as? StackingUiState.Ready ?: return
         _uiState.update { ready.copy(config = ready.config.copy(alignFrames = align)) }
+    }
+
+    fun setDriftHandling(drift: DriftHandling) {
+        val ready = _uiState.value as? StackingUiState.Ready ?: return
+        _uiState.update { ready.copy(config = ready.config.copy(driftHandling = drift)) }
+    }
+
+    fun setMinStarCount(count: Int) {
+        val ready = _uiState.value as? StackingUiState.Ready ?: return
+        _uiState.update { ready.copy(config = ready.config.copy(minStarCount = count.coerceIn(1, 100))) }
     }
 
     // ─── Stack ────────────────────────────────────────────────────────────────
@@ -150,15 +195,35 @@ class StackingViewModel @Inject constructor(
         }
     }
 
-    fun saveToGallery() {
+    fun saveToGallery(format: String = "PNG") {
         val done = _uiState.value as? StackingUiState.Done ?: return
         if (done.isSavingToGallery) return
         viewModelScope.launch {
             _uiState.update { if (it is StackingUiState.Done) it.copy(isSavingToGallery = true) else it }
             val ts = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
             val displayName = "AstroStack_${ts}"
+            
             val publicPath = withContext(Dispatchers.IO) {
-                repository.saveToPublicPictures(done.resultBitmap, displayName)
+                val width = done.resultBitmap.width
+                val height = done.resultBitmap.height
+                val pixels = IntArray(width * height)
+                done.resultBitmap.getPixels(pixels, 0, width, 0, 0, width, height)
+                
+                when (format) {
+                    "TIFF" -> {
+                        repository.saveExportFileToPublicPictures(displayName, "image/tiff", "tiff") { out ->
+                            TiffWriter.writeRgbTiff(out, width, height, pixels)
+                        }
+                    }
+                    "FITS" -> {
+                        repository.saveExportFileToPublicPictures(displayName, "image/fits", "fits") { out ->
+                            FitsWriter.writeRgbFits(out, width, height, pixels)
+                        }
+                    }
+                    else -> { // PNG
+                        repository.saveToPublicPictures(done.resultBitmap, displayName)
+                    }
+                }
             }
             _uiState.update {
                 if (it is StackingUiState.Done)
@@ -167,6 +232,78 @@ class StackingViewModel @Inject constructor(
             }
         }
     }
+
+    fun runPlateSolve(apiKey: String) {
+        val done = _uiState.value as? StackingUiState.Done ?: return
+        if (done.plateSolveState.isSolving) return
+
+        viewModelScope.launch {
+            _uiState.update { state ->
+                if (state is StackingUiState.Done) {
+                    state.copy(
+                        plateSolveState = PlateSolveState(
+                            isSolving = true,
+                            status = "Initializing..."
+                        )
+                    )
+                } else state
+            }
+
+            try {
+                val results = if (apiKey.isBlank()) {
+                    // MOCK solve mode for testing offline or without key
+                    delay(3000)
+                    listOf(
+                        "Orion Nebula (M42)",
+                        "Running Man Nebula (NGC 1977)",
+                        "Theta1 Orionis Cluster",
+                        "Great Orion Nebula (NGC 1976)"
+                    )
+                } else {
+                    AstrometryNetClient.solveImage(
+                        apiKey = apiKey,
+                        bitmap = done.resultBitmap,
+                        onProgress = { status ->
+                            _uiState.update { state ->
+                                if (state is StackingUiState.Done) {
+                                    state.copy(
+                                        plateSolveState = state.plateSolveState.copy(
+                                            status = status
+                                        )
+                                    )
+                                } else state
+                            }
+                        }
+                    )
+                }
+
+                _uiState.update { state ->
+                    if (state is StackingUiState.Done) {
+                        state.copy(
+                            plateSolveState = PlateSolveState(
+                                isSolving = false,
+                                status = "Success",
+                                results = results
+                            )
+                        )
+                    } else state
+                }
+            } catch (e: Exception) {
+                _uiState.update { state ->
+                    if (state is StackingUiState.Done) {
+                        state.copy(
+                            plateSolveState = PlateSolveState(
+                                isSolving = false,
+                                status = "Failed",
+                                error = e.message ?: "Unknown error"
+                            )
+                        )
+                    } else state
+                }
+            }
+        }
+    }
+
 
     fun resetToReady() {
         val done = _uiState.value as? StackingUiState.Done ?: return

@@ -234,7 +234,7 @@ class RawCameraManager @Inject constructor(
      * Starts a repeating preview request targeting [previewSurface].
      * Uses auto-exposure for the live viewfinder, which helps frame the scene.
      */
-    fun startPreview(previewSurface: Surface) {
+    fun startPreview(previewSurface: Surface, autoFocus: Boolean = false) {
         val session = captureSession ?: return
         val device = cameraDevice ?: return
 
@@ -243,8 +243,12 @@ class RawCameraManager @Inject constructor(
             .apply {
                 addTarget(previewSurface)
                 set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
-                set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF)
-                set(CaptureRequest.LENS_FOCUS_DISTANCE, 0f) // infinity
+                if (autoFocus) {
+                    set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
+                } else {
+                    set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF)
+                    set(CaptureRequest.LENS_FOCUS_DISTANCE, 0f) // infinity
+                }
             }
             .build()
 
@@ -300,7 +304,6 @@ class RawCameraManager @Inject constructor(
                 // ── Full manual control ──────────────────────────────────────
                 set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_OFF)
                 set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
-                set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF)
                 set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_OFF)
 
                 // ── Exposure ─────────────────────────────────────────────────
@@ -309,8 +312,13 @@ class RawCameraManager @Inject constructor(
                 // Frame duration ≥ exposure time
                 set(CaptureRequest.SENSOR_FRAME_DURATION, settings.exposureTimeNs)
 
-                // ── Focus: infinity ──────────────────────────────────────────
-                set(CaptureRequest.LENS_FOCUS_DISTANCE, 0f)
+                // ── Focus ────────────────────────────────────────────────────
+                if (settings.autoFocus) {
+                    set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_AUTO)
+                } else {
+                    set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF)
+                    set(CaptureRequest.LENS_FOCUS_DISTANCE, 0f) // infinity
+                }
 
                 // ── Disable all on-device processing — stacking handles it ───
                 set(CaptureRequest.NOISE_REDUCTION_MODE, CaptureRequest.NOISE_REDUCTION_MODE_OFF)

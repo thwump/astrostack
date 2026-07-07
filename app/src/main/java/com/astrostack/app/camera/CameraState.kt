@@ -1,6 +1,7 @@
 package com.astrostack.app.camera
 
 import android.hardware.camera2.CameraCharacteristics
+import com.astrostack.app.stacking.DriftHandling
 
 // ─── Capture settings sent to Camera2 ────────────────────────────────────────
 
@@ -9,12 +10,22 @@ data class CaptureSettings(
     val exposureTimeNs: Long = 4_000_000_000L, // 4 seconds default
     /** ISO sensitivity (e.g. 800, 1600, 3200) */
     val iso: Int = 1600,
-    /** Number of RAW frames to capture for this session */
-    val frameCount: Int = 10,
+    /** Whether to save all captured raw frames permanently */
+    val saveAllPhotos: Boolean = false,
+    /** Whether to run live aligned stacking */
+    val stackPhotos: Boolean = true,
     /** Disable optical image stabilisation — use a tripod instead */
     val disableOis: Boolean = true,
     /** Manual white balance gains [R, Gr, Gb, B] — null = keep camera default */
     val wbGains: FloatArray? = null,
+    /** Auto focus mode enabled (e.g. for daytime tests) */
+    val autoFocus: Boolean = false,
+    /** Star detection threshold (lower means more sensitive, e.g. 50-100 for screens) */
+    val starThreshold: Int = 180,
+    /** Minimum stars required to align and stack the frame */
+    val minStarCount: Int = 5,
+    /** Alignment drift handling: None, Crop, or Mosaic */
+    val driftHandling: DriftHandling = DriftHandling.CROP,
 )
 
 // ─── Exposure presets (shutter speed, ISO pairs) ─────────────────────────────
@@ -80,8 +91,9 @@ data class CameraCapabilities(
 sealed interface CaptureSessionState {
     data object Idle : CaptureSessionState
     data class Capturing(
-        val framesCompleted: Int,
-        val framesTotal: Int,
+        val framesCaptured: Int,
+        val framesStacked: Int,
+        val framesRejected: Int,
         val currentFilePath: String,
     ) : CaptureSessionState
     data class Done(val sessionId: Long, val frameCount: Int) : CaptureSessionState
@@ -96,3 +108,39 @@ sealed interface PreviewState {
     data object NoCameraFound : PreviewState
     data class Error(val message: String) : PreviewState
 }
+
+// ─── Tripod Exposure Limit Calculations ────────────────────────────────────────
+
+fun calculateTripodExposureLimits(characteristics: CameraCharacteristics?): Pair<Float, Float>? {
+    if (characteristics == null) return null
+    try {
+        val focalLengths = characteristics.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS)
+        val focalLength = focalLengths?.firstOrNull() ?: return null
+
+        val physicalSize = characteristics.get(CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE) ?: return null
+        val pixelArraySize = characteristics.get(CameraCharacteristics.SENSOR_INFO_PIXEL_ARRAY_SIZE) ?: return null
+
+        val sensorWidth = physicalSize.width
+        val sensorHeight = physicalSize.height
+        val pixelWidth = pixelArraySize.width
+
+        val sensorDiagonal = kotlin.math.sqrt((sensorWidth * sensorWidth + sensorHeight * sensorHeight).toDouble()).toFloat()
+        val diagonal35mm = kotlin.math.sqrt(36.0 * 36.0 + 24.0 * 24.0).toFloat() // ~43.27
+        val cropFactor = diagonal35mm / sensorDiagonal
+        val focalLength35 = focalLength * cropFactor
+
+        // 500 Rule
+        val rule500 = 500.0f / focalLength35
+
+        // NPF Rule: (35 * aperture + 30 * pixelPitchMicrons) / focalLength
+        val apertures = characteristics.get(CameraCharacteristics.LENS_INFO_AVAILABLE_APERTURES)
+        val aperture = apertures?.firstOrNull() ?: 1.8f
+        val pixelPitch = (sensorWidth * 1000.0f) / pixelWidth
+        val npfRule = (35.0f * aperture + 30.0f * pixelPitch) / focalLength
+
+        return Pair(rule500, npfRule)
+    } catch (e: Exception) {
+        return null
+    }
+}
+

@@ -8,6 +8,8 @@ import android.graphics.Paint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.PrintWriter
+import java.io.FileWriter
 import javax.inject.Inject
 import kotlin.math.max
 import kotlin.math.min
@@ -47,87 +49,191 @@ class ImageStacker @Inject constructor(
         }
         onProgress(0.1f)
 
+        val parentDir = files[0].parentFile
+        var diagWriter: PrintWriter? = null
+        try {
+            if (parentDir != null) {
+                val diagnosticsFile = File(parentDir, "offline_stacking_diagnostics.txt")
+                diagWriter = PrintWriter(FileWriter(diagnosticsFile))
+                diagWriter.println("--- Offline Stacking Run Diagnostics ---")
+                diagWriter.println("Total Input Files: ${files.size}")
+                diagWriter.println("Config: $config")
+                diagWriter.flush()
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("AstroStack", "Failed to create offline diagnostics writer", e)
+        }
+
         val width = bitmaps[0].width
         val height = bitmaps[0].height
 
-        // ── 2. Align frames ────────────────────────────────────────────────────
-        val aligned: List<Bitmap> = if (config.alignFrames && files.size > 1) {
-            alignFrames(bitmaps, config, onProgress = { p -> onProgress(0.1f + p * 0.3f) })
-        } else {
-            bitmaps
+        // ── 2. Detect stars & Quality check & Calculate offsets ────────────────
+        val refStars = starAligner.detectStars(bitmaps[0], starThreshold = config.starThreshold, maxStars = 100)
+        val msg1 = "Reference frame (File 1): Detected ${refStars.size} stars using threshold ${config.starThreshold}."
+        android.util.Log.d("AstroStack", msg1)
+        diagWriter?.println(msg1)
+        diagWriter?.flush()
+
+        if (refStars.size < config.minStarCount) {
+            val msgError = "Reference frame has too few stars (${refStars.size} < ${config.minStarCount}). Stacking aborted."
+            diagWriter?.println(msgError)
+            diagWriter?.close()
+            bitmaps.forEach { it.recycle() }
+            throw IllegalArgumentException(msgError)
         }
+
+        val validBitmaps = mutableListOf<Bitmap>()
+        val offsets = mutableListOf<StarAligner.Offset>()
+        
+        validBitmaps.add(bitmaps[0])
+        offsets.add(StarAligner.Offset(0f, 0f))
+
+        bitmaps.drop(1).forEachIndexed { idx, bmp ->
+            val stars = starAligner.detectStars(bmp, starThreshold = config.starThreshold, maxStars = 100)
+            if (stars.size >= config.minStarCount) {
+                val offset = if (config.alignFrames) {
+                    starAligner.computeTranslation(refStars, stars)
+                } else {
+                    StarAligner.Offset(0f, 0f)
+                }
+                val qual = starAligner.alignmentQuality(refStars, stars)
+                val msg = "Frame ${idx + 2}: Detected ${stars.size} stars. Alignment offset = (${offset.x}, ${offset.y}), Match Quality = ${(qual * 100).toInt()}%."
+                android.util.Log.d("AstroStack", msg)
+                diagWriter?.println(msg)
+                diagWriter?.flush()
+                
+                validBitmaps.add(bmp)
+                offsets.add(offset)
+            } else {
+                val msg = "Frame ${idx + 2}: REJECTED. Star count ${stars.size} < minimum ${config.minStarCount}."
+                android.util.Log.w("AstroStack", msg)
+                diagWriter?.println(msg)
+                diagWriter?.flush()
+                bmp.recycle()
+            }
+        }
+
+        if (validBitmaps.size < 2) {
+            val msgError = "Not enough high-quality frames remaining after star count filter (only ${validBitmaps.size} left)."
+            diagWriter?.println(msgError)
+            diagWriter?.close()
+            validBitmaps.forEach { it.recycle() }
+            throw IllegalArgumentException(msgError)
+        }
+
+        diagWriter?.println("Offline stacking completed. Integrated ${validBitmaps.size} frames.")
+        diagWriter?.close()
+
+        onProgress(0.3f)
+
+        // ── 3. Align frames based on Drift Handling mode ─────────────────────
+        val aligned = mutableListOf<Bitmap>()
+        val finalWidth: Int
+        val finalHeight: Int
+        var cropRect: android.graphics.Rect? = null
+
+        if (config.driftHandling == DriftHandling.MOSAIC && config.alignFrames) {
+            val minX = offsets.minOf { it.x }
+            val maxX = offsets.maxOf { it.x }
+            val minY = offsets.minOf { it.y }
+            val maxY = offsets.maxOf { it.y }
+
+            finalWidth = (maxX - minX).toInt() + width
+            finalHeight = (maxY - minY).toInt() + height
+
+            validBitmaps.forEachIndexed { i, bmp ->
+                val dx = offsets[i].x - minX
+                val dy = offsets[i].y - minY
+                val dst = Bitmap.createBitmap(finalWidth, finalHeight, Bitmap.Config.ARGB_8888)
+                val canvas = Canvas(dst)
+                val matrix = Matrix().also { it.setTranslate(dx, dy) }
+                canvas.drawBitmap(bmp, matrix, Paint(Paint.FILTER_BITMAP_FLAG))
+                aligned.add(dst)
+            }
+        } else {
+            finalWidth = width
+            finalHeight = height
+            
+            validBitmaps.forEachIndexed { i, bmp ->
+                val offset = offsets[i]
+                if (offset.x != 0f || offset.y != 0f) {
+                    aligned.add(applyTranslation(bmp, offset.x, offset.y))
+                } else {
+                    aligned.add(bmp)
+                }
+            }
+
+            if (config.driftHandling == DriftHandling.CROP && config.alignFrames) {
+                val left = offsets.maxOf { it.x }.coerceAtLeast(0f).toInt()
+                val right = (offsets.minOf { it.x } + width).coerceAtMost(width.toFloat()).toInt()
+                val top = offsets.maxOf { it.y }.coerceAtLeast(0f).toInt()
+                val bottom = (offsets.minOf { it.y } + height).coerceAtMost(height.toFloat()).toInt()
+
+                if (right > left && bottom > top) {
+                    cropRect = android.graphics.Rect(left, top, right, bottom)
+                }
+            }
+        }
+
         onProgress(0.4f)
 
-        // ── 3. Stack in horizontal strips ─────────────────────────────────────
-        val resultPixels = IntArray(width * height)
-        val stripHeight = max(1, height / config.tileStripCount)
-        val floatBuffers = Array(aligned.size) { FloatArray(width * stripHeight * 3) }
+        // ── 4. Stack in horizontal strips ─────────────────────────────────────
+        val resultPixels = IntArray(finalWidth * finalHeight)
+        val stripHeight = max(1, finalHeight / config.tileStripCount)
+        val floatBuffers = Array(aligned.size) { FloatArray(finalWidth * stripHeight * 3) }
 
-        for (stripStart in 0 until height step stripHeight) {
-            val stripEnd = min(height, stripStart + stripHeight)
+        for (stripStart in 0 until finalHeight step stripHeight) {
+            val stripEnd = min(finalHeight, stripStart + stripHeight)
             val rows = stripEnd - stripStart
 
             // Fill float buffers for this strip
             for (frameIdx in aligned.indices) {
                 val bmp = aligned[frameIdx]
-                val strip = IntArray(width * rows)
-                bmp.getPixels(strip, 0, width, 0, stripStart, width, rows)
-                argbToLinearFloat(strip, floatBuffers[frameIdx], width * rows)
+                val strip = IntArray(finalWidth * rows)
+                bmp.getPixels(strip, 0, finalWidth, 0, stripStart, finalWidth, rows)
+                argbToLinearFloat(strip, floatBuffers[frameIdx], finalWidth * rows)
             }
 
             // Stack this strip
-            val stackedStrip = stackStrip(floatBuffers, width, rows, config)
+            val stackedStrip = stackStrip(floatBuffers, finalWidth, rows, config)
 
             // Write result pixels
-            linearFloatToArgb(stackedStrip, resultPixels, stripStart * width, width * rows)
+            linearFloatToArgb(stackedStrip, resultPixels, stripStart * finalWidth, finalWidth * rows)
 
-            val progress = 0.4f + (stripEnd.toFloat() / height) * 0.5f
+            val progress = 0.4f + (stripEnd.toFloat() / finalHeight) * 0.5f
             withContext(Dispatchers.Main) { onProgress(progress) }
         }
 
-        // ── 4. Build result bitmap ─────────────────────────────────────────────
-        val resultBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also {
-            it.setPixels(resultPixels, 0, width, 0, 0, width, height)
+        // ── 5. Build result bitmap ─────────────────────────────────────────────
+        var resultBitmap = Bitmap.createBitmap(finalWidth, finalHeight, Bitmap.Config.ARGB_8888).also {
+            it.setPixels(resultPixels, 0, finalWidth, 0, 0, finalWidth, finalHeight)
         }
         onProgress(0.9f)
 
-        // ── 5. Histogram stretch ───────────────────────────────────────────────
+        // ── 6. Crop if required ───────────────────────────────────────────────
+        cropRect?.let { rect ->
+            val cropped = Bitmap.createBitmap(resultBitmap, rect.left, rect.top, rect.width(), rect.height())
+            resultBitmap.recycle()
+            resultBitmap = cropped
+        }
+
+        // ── 7. Histogram stretch ───────────────────────────────────────────────
         val stretched = if (config.skipStretch) resultBitmap else histogramStretch.autoStretch(resultBitmap)
         onProgress(1.0f)
 
-        // Clean up — only recycle resultBitmap if it is NOT the returned bitmap
-        // (skipStretch = true means stretched === resultBitmap, so don't double-free)
-        aligned.forEach { if (it != bitmaps[0]) it.recycle() }
-        bitmaps.drop(1).forEach { it.recycle() }
+        // Clean up
+        aligned.forEachIndexed { i, bmp ->
+            if (bmp !== validBitmaps[i]) {
+                bmp.recycle()
+            }
+        }
+        validBitmaps.forEach { it.recycle() }
         if (stretched !== resultBitmap) resultBitmap.recycle()
 
         stretched
     }
 
     // ─── Alignment ────────────────────────────────────────────────────────────
-
-    private suspend fun alignFrames(
-        bitmaps: List<Bitmap>,
-        config: StackingConfig,
-        onProgress: suspend (Float) -> Unit,
-    ): List<Bitmap> {
-        val reference = bitmaps[0]
-        val refStars = starAligner.detectStars(reference)
-        val result = mutableListOf(reference) // reference is unchanged
-
-        bitmaps.drop(1).forEachIndexed { idx, bmp ->
-            val targetStars = starAligner.detectStars(bmp)
-            val offset = starAligner.computeTranslation(refStars, targetStars)
-            val aligned = if (offset.x != 0f || offset.y != 0f) {
-                applyTranslation(bmp, offset.x, offset.y)
-            } else {
-                bmp
-            }
-            result.add(aligned)
-            onProgress((idx + 1).toFloat() / (bitmaps.size - 1))
-        }
-        return result
-    }
 
     private fun applyTranslation(src: Bitmap, dx: Float, dy: Float): Bitmap {
         val dst = Bitmap.createBitmap(src.width, src.height, Bitmap.Config.ARGB_8888)
@@ -139,10 +245,6 @@ class ImageStacker @Inject constructor(
 
     // ─── Strip stacking ───────────────────────────────────────────────────────
 
-    /**
-     * Stack [frameCount] float strips into a single float strip.
-     * Each buffer layout: [R₀G₀B₀, R₁G₁B₁, …] for width*rows pixels.
-     */
     private fun stackStrip(
         buffers: Array<FloatArray>,
         width: Int,
@@ -152,8 +254,6 @@ class ImageStacker @Inject constructor(
         val pixelCount = width * rows
         val channels = 3
         val result = FloatArray(pixelCount * channels)
-
-        // Temporary column across frames for one channel of one pixel
         val column = FloatArray(buffers.size)
 
         for (px in 0 until pixelCount) {
@@ -161,14 +261,20 @@ class ImageStacker @Inject constructor(
                 val idx = px * channels + ch
                 for (f in buffers.indices) column[f] = buffers[f][idx]
 
-                result[idx] = when (config.algorithm) {
-                    StackingAlgorithm.MEAN -> StackingMath.mean(column)
-                    StackingAlgorithm.MEDIAN -> StackingMath.median(column)
-                    StackingAlgorithm.SIGMA_CLIPPING ->
-                        StackingMath.sigmaClip(column, config.kappa, config.sigmaIterations)
-                    StackingAlgorithm.WINSORIZED_SIGMA ->
-                        StackingMath.winsorizedSigma(column, config.kappa, config.sigmaIterations)
-                    StackingAlgorithm.MAXIMUM -> StackingMath.maximum(column)
+                val validColumn = column.filter { !it.isNaN() }.toFloatArray()
+
+                result[idx] = if (validColumn.isEmpty()) {
+                    Float.NaN
+                } else {
+                    when (config.algorithm) {
+                        StackingAlgorithm.MEAN -> StackingMath.mean(validColumn)
+                        StackingAlgorithm.MEDIAN -> StackingMath.median(validColumn)
+                        StackingAlgorithm.SIGMA_CLIPPING ->
+                            StackingMath.sigmaClip(validColumn, config.kappa, config.sigmaIterations)
+                        StackingAlgorithm.WINSORIZED_SIGMA ->
+                            StackingMath.winsorizedSigma(validColumn, config.kappa, config.sigmaIterations)
+                        StackingAlgorithm.MAXIMUM -> StackingMath.maximum(validColumn)
+                    }
                 }
             }
         }
@@ -177,13 +283,16 @@ class ImageStacker @Inject constructor(
 
     // ─── Colour space helpers ─────────────────────────────────────────────────
 
-    /**
-     * Convert ARGB8888 [argb] to linear-light RGB float [0, 1] in-place.
-     * Applies the inverse of the sRGB piecewise gamma function.
-     */
     private fun argbToLinearFloat(argb: IntArray, out: FloatArray, count: Int) {
         for (i in 0 until count) {
             val pixel = argb[i]
+            val alpha = (pixel shr 24) and 0xFF
+            if (alpha == 0) {
+                out[i * 3] = Float.NaN
+                out[i * 3 + 1] = Float.NaN
+                out[i * 3 + 2] = Float.NaN
+                continue
+            }
             val r = ((pixel shr 16) and 0xFF) / 255f
             val g = ((pixel shr 8) and 0xFF) / 255f
             val b = (pixel and 0xFF) / 255f
@@ -193,15 +302,18 @@ class ImageStacker @Inject constructor(
         }
     }
 
-    /**
-     * Convert linear-light float RGB back to ARGB8888 and write into [out]
-     * starting at [outOffset].
-     */
     private fun linearFloatToArgb(floats: FloatArray, out: IntArray, outOffset: Int, count: Int) {
         for (i in 0 until count) {
-            val r = (linearToSrgb(floats[i * 3]).coerceIn(0f, 1f) * 255 + 0.5f).toInt()
-            val g = (linearToSrgb(floats[i * 3 + 1]).coerceIn(0f, 1f) * 255 + 0.5f).toInt()
-            val b = (linearToSrgb(floats[i * 3 + 2]).coerceIn(0f, 1f) * 255 + 0.5f).toInt()
+            val rVal = floats[i * 3]
+            if (rVal.isNaN()) {
+                out[outOffset + i] = 0x00000000
+                continue
+            }
+            val gVal = floats[i * 3 + 1]
+            val bVal = floats[i * 3 + 2]
+            val r = (linearToSrgb(rVal).coerceIn(0f, 1f) * 255 + 0.5f).toInt()
+            val g = (linearToSrgb(gVal).coerceIn(0f, 1f) * 255 + 0.5f).toInt()
+            val b = (linearToSrgb(bVal).coerceIn(0f, 1f) * 255 + 0.5f).toInt()
             out[outOffset + i] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
         }
     }
@@ -221,11 +333,10 @@ class ImageStacker @Inject constructor(
         val opts = BitmapFactory.Options().apply {
             inSampleSize = subsample.coerceAtLeast(1)
             inPreferredConfig = Bitmap.Config.ARGB_8888
-            // Force sRGB on API 26+ so the decoded pixel values are never
-            // silently converted to the device's Display P3 colour space.
             inPreferredColorSpace = srgb
         }
         return BitmapFactory.decodeFile(file.absolutePath, opts)
             ?: throw IllegalArgumentException("Failed to decode ${file.name}")
     }
 }
+

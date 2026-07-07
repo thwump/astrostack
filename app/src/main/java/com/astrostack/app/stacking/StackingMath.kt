@@ -14,13 +14,17 @@ import kotlin.math.sqrt
 internal object StackingMath {
 
     /** Arithmetic mean of all values in the array. */
-    fun mean(values: FloatArray): Float = values.sum() / values.size
+    fun mean(values: FloatArray): Float {
+        if (values.isEmpty()) return 0f
+        return values.sum() / values.size
+    }
 
     /**
      * Sample median. Allocates a sorted copy to avoid mutating the input.
      * Returns the average of the two middle values for even-length arrays.
      */
     fun median(values: FloatArray): Float {
+        if (values.isEmpty()) return 0f
         val sorted = values.copyOf()
         sorted.sort()
         val mid = sorted.size / 2
@@ -35,6 +39,7 @@ internal object StackingMath {
      * If fewer than 2 values survive an iteration the previous set is kept.
      */
     fun sigmaClip(values: FloatArray, kappa: Float, iterations: Int): Float {
+        if (values.size < 2) return values.firstOrNull() ?: 0f
         val working = values.copyOf()
         var count = working.size
 
@@ -61,6 +66,7 @@ internal object StackingMath {
      * Preserves the array length, which helps SNR when few frames are available.
      */
     fun winsorizedSigma(values: FloatArray, kappa: Float, iterations: Int): Float {
+        if (values.size < 2) return values.firstOrNull() ?: 0f
         val working = values.copyOf()
         repeat(iterations) {
             val m = mean(working)
@@ -73,7 +79,7 @@ internal object StackingMath {
     }
 
     /** Maximum value in the array. */
-    fun maximum(values: FloatArray): Float = values.max()
+    fun maximum(values: FloatArray): Float = values.maxOrNull() ?: 0f
 
     /**
      * Bessel-corrected (sample) standard deviation over the first [count]
@@ -88,4 +94,5 @@ internal object StackingMath {
         }
         return sqrt(sum / (count - 1)).toFloat()
     }
+
 }

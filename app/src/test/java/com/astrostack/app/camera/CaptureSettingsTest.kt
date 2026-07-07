@@ -13,7 +13,10 @@ class CaptureSettingsTest {
         val s = CaptureSettings()
         assertTrue("Default exposure should be > 0", s.exposureTimeNs > 0)
         assertTrue("Default ISO should be > 0", s.iso > 0)
-        assertTrue("Default frame count should be >= 1", s.frameCount >= 1)
+        assertTrue("Default stackPhotos should be true", s.stackPhotos)
+        assertEquals(180, s.starThreshold)
+        assertEquals(5, s.minStarCount)
+        assertEquals(com.astrostack.app.stacking.DriftHandling.CROP, s.driftHandling)
     }
 
     @Test fun defaultSettings_focusIsInfinity() {
@@ -52,11 +55,5 @@ class CaptureSettingsTest {
         val times = EXPOSURE_PRESETS.map { it.exposureTimeNs }
         val sorted = times.sorted()
         assertEquals("Presets should be in ascending exposure order", sorted, times)
-    }
-
-    @Test fun captureSettings_frameCountClamping() {
-        // StackingViewModel clamps to 1..100; verify the domain makes sense
-        val s = CaptureSettings(frameCount = 10)
-        assertEquals(10, s.frameCount)
     }
 }
