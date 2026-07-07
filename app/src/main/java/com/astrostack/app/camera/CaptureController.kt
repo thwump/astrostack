@@ -82,6 +82,11 @@ class CaptureController @Inject constructor(
     private val _capabilities = MutableStateFlow<CameraCapabilities?>(null)
     val capabilitiesFlow: StateFlow<CameraCapabilities?> = _capabilities.asStateFlow()
 
+    private val _availableCameras = MutableStateFlow<List<CameraCapabilities>>(emptyList())
+    val availableCameras: StateFlow<List<CameraCapabilities>> = _availableCameras.asStateFlow()
+
+    private var selectedCameraId: String? = null
+
     // Live preview stack generated in real-time
     private val _liveStackedBitmap = MutableStateFlow<Bitmap?>(null)
     val liveStackedBitmap: StateFlow<Bitmap?> = _liveStackedBitmap.asStateFlow()
@@ -110,9 +115,14 @@ class CaptureController @Inject constructor(
         activePreviewSurface = previewSurface
         scope.launch {
             try {
-                val caps = withContext(Dispatchers.IO) {
-                    cameraManager.findBestRawCamera()
+                val list = withContext(Dispatchers.IO) {
+                    cameraManager.findAllRawCameras()
                 }
+                _availableCameras.value = list
+                
+                val currentId = selectedCameraId ?: list.firstOrNull()?.cameraId
+                val caps = list.firstOrNull { it.cameraId == currentId } ?: list.firstOrNull()
+
                 if (caps == null) {
                     _previewState.value = PreviewState.NoCameraFound
                     return@launch
@@ -127,6 +137,19 @@ class CaptureController @Inject constructor(
             } catch (e: Exception) {
                 _previewState.value = PreviewState.Error(e.message ?: "Unknown camera error")
             }
+        }
+    }
+
+    @RequiresPermission(Manifest.permission.CAMERA)
+    fun selectCamera(cameraId: String) {
+        if (selectedCameraId == cameraId) return
+        selectedCameraId = cameraId
+        val surface = activePreviewSurface ?: return
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                cameraManager.close()
+            }
+            openCamera(surface)
         }
     }
 

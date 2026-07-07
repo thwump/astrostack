@@ -70,9 +70,8 @@ class RawCameraManager @Inject constructor(
      * On devices like the Pixel 9 that expose multiple rear cameras (wide, ultrawide, tele),
      * the camera with the largest RAW output resolution is preferred.
      */
-    fun findBestRawCamera(): CameraCapabilities? {
+    fun findAllRawCameras(): List<CameraCapabilities> {
         data class Candidate(val caps: CameraCapabilities, val priority: Int)
-
         val candidates = mutableListOf<Candidate>()
 
         for (id in cameraManager.cameraIdList) {
@@ -129,23 +128,19 @@ class RawCameraManager @Inject constructor(
             candidates.add(Candidate(cap, priority))
         }
 
-        // Sort: lowest priority number first (best), then largest sensor resolution
-        val best = candidates
+        return candidates
             .sortedWith(compareBy<Candidate> { it.priority }
                 .thenByDescending { it.caps.rawSensorWidth * it.caps.rawSensorHeight })
-            .firstOrNull()
-            ?.caps
+            .map { it.caps }
+    }
 
-        // Log all discovered cameras for debugging
-        candidates.forEach { c ->
-            android.util.Log.d(TAG, "Camera ${c.caps.cameraId}: " +
-                    "RAW=${c.caps.supportsRaw} " +
-                    "${c.caps.rawSensorWidth}x${c.caps.rawSensorHeight} " +
-                    "ISO=${c.caps.minIso}-${c.caps.maxIso} " +
-                    "priority=${c.priority}")
+    fun findBestRawCamera(): CameraCapabilities? {
+        val list = findAllRawCameras()
+        list.forEach { cap ->
+            android.util.Log.d(TAG, "Camera ${cap.cameraId}: RAW=${cap.supportsRaw} ${cap.rawSensorWidth}x${cap.rawSensorHeight} ISO=${cap.minIso}-${cap.maxIso}")
         }
+        val best = list.firstOrNull()
         android.util.Log.d(TAG, "Selected camera: ${best?.cameraId} RAW=${best?.supportsRaw}")
-
         return best
     }
 

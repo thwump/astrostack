@@ -2,6 +2,7 @@ package com.astrostack.app.camera
 
 import android.hardware.camera2.CameraCharacteristics
 import com.astrostack.app.stacking.DriftHandling
+import kotlin.math.roundToInt
 
 // ─── Capture settings sent to Camera2 ────────────────────────────────────────
 
@@ -92,7 +93,29 @@ data class CameraCapabilities(
     val hasOis: Boolean,
     val characteristics: CameraCharacteristics,
     val supportsNightExtension: Boolean,
-)
+) {
+    val userLabel: String get() {
+        val focalLengths = characteristics.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS)
+        val focalLength = focalLengths?.firstOrNull() ?: 4.0f
+        val physicalSize = characteristics.get(CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE)
+        val label = if (physicalSize != null) {
+            val sensorWidth = physicalSize.width
+            val sensorHeight = physicalSize.height
+            val sensorDiagonal = kotlin.math.sqrt((sensorWidth * sensorWidth + sensorHeight * sensorHeight).toDouble()).toFloat()
+            val diagonal35mm = kotlin.math.sqrt(36.0 * 36.0 + 24.0 * 24.0).toFloat()
+            val cropFactor = diagonal35mm / sensorDiagonal
+            val focalLength35 = (focalLength * cropFactor).roundToInt()
+            when {
+                focalLength35 < 20 -> "Ultrawide (${focalLength35}mm eq.)"
+                focalLength35 in 20..35 -> "Main (${focalLength35}mm eq.)"
+                else -> "Telephoto (${focalLength35}mm eq.)"
+            }
+        } else {
+            "Camera $cameraId"
+        }
+        return label
+    }
+}
 
 // ─── Ongoing session state ────────────────────────────────────────────────────
 

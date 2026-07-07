@@ -43,6 +43,7 @@ data class CameraUiState(
     val enableGradientRemoval: Boolean = false,
     val hasMasterDark: Boolean = false,
     val hasMasterFlat: Boolean = false,
+    val availableCameras: List<CameraCapabilities> = emptyList(),
 )
 
 @HiltViewModel
@@ -93,6 +94,11 @@ class CameraViewModel @Inject constructor(
         viewModelScope.launch {
             captureController.hasMasterFlat.collect { has ->
                 _uiState.update { it.copy(hasMasterFlat = has) }
+            }
+        }
+        viewModelScope.launch {
+            captureController.availableCameras.collect { list ->
+                _uiState.update { it.copy(availableCameras = list) }
             }
         }
     }
@@ -240,6 +246,11 @@ class CameraViewModel @Inject constructor(
     fun cancelCapture() = captureController.cancelSession()
 
     fun resetSessionState() = captureController.resetSessionState()
+
+    @RequiresPermission(Manifest.permission.CAMERA)
+    fun selectCamera(cameraId: String) {
+        captureController.selectCamera(cameraId)
+    }
 
     override fun onCleared() {
         super.onCleared()

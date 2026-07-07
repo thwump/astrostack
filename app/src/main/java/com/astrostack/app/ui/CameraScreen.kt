@@ -274,6 +274,32 @@ fun CameraScreen(
                                     .padding(12.dp),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
+                                // Camera Lens Selector
+                                if (uiState.availableCameras.size > 1) {
+                                    Column {
+                                        Text("Camera Lens Selector", color = Color.Gray, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            uiState.availableCameras.forEach { cap ->
+                                                val selected = uiState.capabilities?.cameraId == cap.cameraId
+                                                FilterChip(
+                                                    selected = selected,
+                                                    onClick = { viewModel.selectCamera(cap.cameraId) },
+                                                    label = { Text(cap.userLabel, fontSize = 11.sp) },
+                                                    colors = FilterChipDefaults.filterChipColors(
+                                                        selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                                                        selectedLabelColor = MaterialTheme.colorScheme.primary,
+                                                        labelColor = Color.LightGray
+                                                    )
+                                                )
+                                            }
+                                        }
+                                    }
+                                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = Color.White.copy(alpha = 0.05f))
+                                }
+
                                 // Drift Handling Segmented Control
                                 Column {
                                     Text("Drift Handling", color = Color.Gray, fontSize = 11.sp, fontWeight = FontWeight.Bold)

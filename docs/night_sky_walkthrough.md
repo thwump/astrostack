@@ -62,13 +62,14 @@ On the viewfinder screen, configure your camera settings:
 
 Click **Show Stacking Settings ⚙** to set up the aligner:
 
-1. **Drift Handling**: Choose **CROP**. Ensures the final saved image only contains the overlapping aligned region.
-2. **Stretch Type**: 
+1. **Camera Lens Selector**: If your device has multiple rear cameras (e.g. Pixel 9 Pro), tap your target lens (e.g. `Ultrawide (13mm eq.)`, `Main (24mm eq.)`, `Telephoto (110mm eq.)`). The preview will reload and recalculate the NPF limits instantly.
+2. **Drift Handling**: Choose **CROP**. Ensures the final saved image only contains the overlapping aligned region.
+3. **Stretch Type**: 
    - **Histogram (STF)**: Auto-stretch optimized for faint nebulosity.
    - **Arcsinh (Color)**: Stretches pixels while preserving correct star color ratios (chrominance) to prevent stars from burning white.
-3. **Gradient Removal**: Toggle **ON** if you are shooting from a city. This subtracts uneven gradients caused by streetlights and light pollution.
-4. **Min Stars for Stacking**: Keep at **5** or **8**.
-5. **Star Sensitivity Threshold**: Default **180** (decrease to **130-150** if there is thin haze/clouds).
+4. **Gradient Removal**: Toggle **ON** if you are shooting from a city. This subtracts uneven gradients caused by streetlights and light pollution.
+5. **Min Stars for Stacking**: Keep at **5** or **8**.
+6. **Star Sensitivity Threshold**: Default **180** (decrease to **130-150** if there is thin haze/clouds).
 
 ---
 
