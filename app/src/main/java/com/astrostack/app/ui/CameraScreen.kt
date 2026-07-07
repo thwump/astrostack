@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 
+import com.astrostack.app.camera.StretchType
 import com.astrostack.app.stacking.DriftHandling
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -136,7 +137,19 @@ fun CameraScreen(
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    // Quick Scout button — single stretched frame for target finding
+                    Button(
+                        onClick = { viewModel.startScoutingCapture() },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.25f),
+                            contentColor = MaterialTheme.colorScheme.tertiary
+                        ),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        modifier = Modifier.height(32.dp)
+                    ) {
+                        Text("Scout \uD83D\uDD2D", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
                     IconButton(onClick = { isFullScreenView = true }) {
                         Icon(
                             imageVector = Icons.Filled.Fullscreen,
@@ -259,6 +272,57 @@ fun CameraScreen(
                                     }
                                 }
 
+                                // Stretch Type Segmented Control
+                                Column {
+                                    Text("Stretch Type", color = Color.Gray, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        StretchType.values().forEach { stretch ->
+                                            val selected = uiState.stretchType == stretch
+                                            FilterChip(
+                                                selected = selected,
+                                                onClick = { viewModel.setStretchType(stretch) },
+                                                label = {
+                                                    Text(
+                                                        when (stretch) {
+                                                            StretchType.HISTOGRAM -> "Histogram (STF)"
+                                                            StretchType.ARCSINH -> "Arcsinh (Color)"
+                                                        },
+                                                        fontSize = 11.sp
+                                                    )
+                                                },
+                                                colors = FilterChipDefaults.filterChipColors(
+                                                    selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                                                    selectedLabelColor = MaterialTheme.colorScheme.primary,
+                                                    labelColor = Color.LightGray
+                                                )
+                                            )
+                                        }
+                                    }
+                                }
+
+                                // Light Pollution Gradient Removal toggle
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Text("Gradient Removal", color = Color.Gray, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        Text("Subtract background light pollution", color = Color.DarkGray, fontSize = 9.sp)
+                                    }
+                                    Switch(
+                                        checked = uiState.enableGradientRemoval,
+                                        onCheckedChange = { viewModel.setEnableGradientRemoval(it) },
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                            checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                                        )
+                                    )
+                                }
+
                                 // Min Stars selector
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -319,7 +383,9 @@ fun CameraScreen(
 
                 // Calibration Section
                 val hasMasterDark by viewModel.hasMasterDark.collectAsState()
+                val hasMasterFlat by viewModel.hasMasterFlat.collectAsState()
                 var showDarkCalibrationWizard by remember { mutableStateOf(false) }
+                var showFlatCalibrationWizard by remember { mutableStateOf(false) }
 
                 Column(
                     modifier = Modifier
@@ -381,6 +447,64 @@ fun CameraScreen(
                             }
                         }
                     }
+
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 4.dp),
+                        color = Color.White.copy(alpha = 0.05f)
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("Flat Frame Calibration", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .background(
+                                            color = if (hasMasterFlat) Color.Green else Color.Gray,
+                                            shape = CircleShape
+                                        )
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = if (hasMasterFlat) "Master Flat Active" else "No Flat Reference Profile",
+                                    color = Color.Gray,
+                                    fontSize = 9.sp
+                                )
+                            }
+                        }
+                        
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (hasMasterFlat) {
+                                TextButton(
+                                    onClick = viewModel::clearMasterFlat,
+                                    contentPadding = PaddingValues(0.dp),
+                                    modifier = Modifier.height(24.dp)
+                                ) {
+                                    Text("Clear", color = MaterialTheme.colorScheme.primary, fontSize = 10.sp)
+                                }
+                            }
+                            Button(
+                                onClick = { showFlatCalibrationWizard = true },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                    contentColor = MaterialTheme.colorScheme.primary
+                                ),
+                                shape = RoundedCornerShape(4.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                modifier = Modifier.height(24.dp)
+                            ) {
+                                Text("Calibrate", fontSize = 10.sp)
+                            }
+                        }
+                    }
                 }
 
                 if (showDarkCalibrationWizard) {
@@ -413,6 +537,36 @@ fun CameraScreen(
                     )
                 }
 
+                if (showFlatCalibrationWizard) {
+                    AlertDialog(
+                        onDismissRequest = { showFlatCalibrationWizard = false },
+                        title = { Text("Capture Master Flat Reference", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold) },
+                        text = {
+                            Text(
+                                text = "To correct vignetting (dark corners) and lens dust, please point your camera at a bright, evenly lit surface (like a white computer screen or a white t-shirt stretched over the lens pointed at the sky) and tap Start. The app will capture 10 frames to compute the flat calibration profile.",
+                                color = Color.LightGray,
+                                fontSize = 12.sp
+                            )
+                        },
+                        confirmButton = {
+                            Button(
+                                onClick = {
+                                    showFlatCalibrationWizard = false
+                                    viewModel.startFlatCalibration()
+                                }
+                            ) {
+                                Text("Start", fontSize = 12.sp)
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showFlatCalibrationWizard = false }) {
+                                Text("Cancel", color = Color.Gray, fontSize = 12.sp)
+                            }
+                        },
+                        containerColor = Color(0xFF1E1E1E)
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Capture / cancel / stop controls
@@ -436,6 +590,44 @@ fun CameraScreen(
                             )
                             Text(
                                 text = "Keep lens covered completely!",
+                                color = Color.Gray,
+                                fontSize = 10.sp
+                            )
+                            LinearProgressIndicator(
+                                progress = { state.framesCaptured.toFloat() / state.totalFrames.toFloat() },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(4.dp),
+                                color = MaterialTheme.colorScheme.primary,
+                                trackColor = Color.White.copy(alpha = 0.1f)
+                            )
+                            Text(
+                                text = "Captured ${state.framesCaptured} of ${state.totalFrames} frames",
+                                color = Color.White,
+                                fontSize = 11.sp
+                            )
+                            TextButton(onClick = viewModel::resetSessionState) {
+                                Text("Cancel Calibration", color = Color.Gray, fontSize = 11.sp)
+                            }
+                        }
+                    }
+
+                    is CaptureSessionState.CalibratingFlat -> {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                        ) {
+                            Text(
+                                text = "Calibrating Master Flat",
+                                color = MaterialTheme.colorScheme.primary,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Point at an evenly lit white surface!",
                                 color = Color.Gray,
                                 fontSize = 10.sp
                             )

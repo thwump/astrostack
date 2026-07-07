@@ -215,4 +215,63 @@ class HistogramStretch @Inject constructor() {
         out.setPixels(pixels, 0, width, 0, 0, width, height)
         return out
     }
+
+    /**
+     * Arcsinh color-preserving stretch.
+     * Computes luminance, stretches it using inverse hyperbolic sine, and scales channels proportionally.
+     */
+    fun arcsinhStretch(bitmap: Bitmap, shadowClip: Float = 1.5f, stretchFactor: Float = 50f): Bitmap {
+        val width = bitmap.width
+        val height = bitmap.height
+        val pixels = IntArray(width * height)
+        bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
+
+        val r = FloatArray(pixels.size)
+        val g = FloatArray(pixels.size)
+        val b = FloatArray(pixels.size)
+        val luma = FloatArray(pixels.size)
+
+        for (i in pixels.indices) {
+            r[i] = ((pixels[i] shr 16) and 0xFF) / 255f
+            g[i] = ((pixels[i] shr 8) and 0xFF) / 255f
+            b[i] = (pixels[i] and 0xFF) / 255f
+            luma[i] = 0.2126f * r[i] + 0.7152f * g[i] + 0.0722f * b[i]
+        }
+
+        val med = median(luma)
+        val mad = mad(luma, med)
+        val blackPoint = max(0f, med - shadowClip * mad)
+
+        val asinhFactor = asinh(stretchFactor.toDouble())
+        val outPixels = IntArray(pixels.size)
+
+        for (i in pixels.indices) {
+            val l = max(0f, luma[i] - blackPoint)
+            if (l <= 0f) {
+                outPixels[i] = 0xFF shl 24 // black
+                continue
+            }
+
+            val lStretched = (asinh(l.toDouble() * stretchFactor) / asinhFactor).toFloat().coerceIn(0f, 1f)
+            val ratio = lStretched / l
+
+            val rc = max(0f, r[i] - blackPoint) * ratio
+            val gc = max(0f, g[i] - blackPoint) * ratio
+            val bc = max(0f, b[i] - blackPoint) * ratio
+
+            val ri = (rc.coerceIn(0f, 1f) * 255 + 0.5f).toInt()
+            val gi = (gc.coerceIn(0f, 1f) * 255 + 0.5f).toInt()
+            val bi = (bc.coerceIn(0f, 1f) * 255 + 0.5f).toInt()
+
+            outPixels[i] = (0xFF shl 24) or (ri shl 16) or (gi shl 8) or bi
+        }
+
+        val out = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        out.setPixels(outPixels, 0, width, 0, 0, width, height)
+        return out
+    }
+
+    private fun asinh(x: Double): Double {
+        return kotlin.math.ln(x + kotlin.math.sqrt(x * x + 1.0))
+    }
 }

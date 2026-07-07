@@ -26,7 +26,14 @@ data class CaptureSettings(
     val minStarCount: Int = 5,
     /** Alignment drift handling: None, Crop, or Mosaic */
     val driftHandling: DriftHandling = DriftHandling.CROP,
+    val stretchType: StretchType = StretchType.HISTOGRAM,
+    val enableGradientRemoval: Boolean = false,
 )
+
+enum class StretchType {
+    HISTOGRAM,
+    ARCSINH
+}
 
 // ─── Exposure presets (shutter speed, ISO pairs) ─────────────────────────────
 
@@ -84,6 +91,7 @@ data class CameraCapabilities(
     val rawSensorHeight: Int,
     val hasOis: Boolean,
     val characteristics: CameraCharacteristics,
+    val supportsNightExtension: Boolean,
 )
 
 // ─── Ongoing session state ────────────────────────────────────────────────────
@@ -99,6 +107,7 @@ sealed interface CaptureSessionState {
     data class Done(val sessionId: Long, val frameCount: Int) : CaptureSessionState
     data class Error(val message: String, val cause: Throwable? = null) : CaptureSessionState
     data class CalibratingDark(val framesCaptured: Int, val totalFrames: Int) : CaptureSessionState
+    data class CalibratingFlat(val framesCaptured: Int, val totalFrames: Int) : CaptureSessionState
 }
 
 // ─── Live preview state ───────────────────────────────────────────────────────

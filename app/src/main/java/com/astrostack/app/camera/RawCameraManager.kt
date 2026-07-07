@@ -11,6 +11,8 @@ import android.media.Image
 import android.media.ImageReader
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.Build
+import android.hardware.camera2.CameraExtensionCharacteristics
 import android.view.Surface
 import androidx.annotation.RequiresPermission
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -102,6 +104,15 @@ class RawCameraManager @Inject constructor(
                 else                               -> 2  // fallback: rear camera, no RAW
             }
 
+            val hasNightExtension = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                runCatching {
+                    val extChars = cameraManager.getCameraExtensionCharacteristics(id)
+                    extChars.supportedExtensions.contains(CameraExtensionCharacteristics.EXTENSION_NIGHT)
+                }.getOrDefault(false)
+            } else {
+                false
+            }
+
             val cap = CameraCapabilities(
                 cameraId = id,
                 supportsRaw = hasRawCapability || largest != null,
@@ -113,6 +124,7 @@ class RawCameraManager @Inject constructor(
                 rawSensorHeight = largest?.height ?: 0,
                 hasOis = hasOis,
                 characteristics = chars,
+                supportsNightExtension = hasNightExtension,
             )
             candidates.add(Candidate(cap, priority))
         }

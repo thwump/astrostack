@@ -1,5 +1,7 @@
 package com.astrostack.app.stacking
 
+import com.astrostack.app.camera.StretchType
+
 /**
  * Available frame-stacking algorithms.
  *
@@ -102,5 +104,7 @@ data class StackingConfig(
     val minStarCount: Int = 8,
     /** Star detection threshold sensitivity [20, 255] */
     val starThreshold: Int = 180,
+    val stretchType: StretchType = StretchType.HISTOGRAM,
+    val enableGradientRemoval: Boolean = false,
 )
 

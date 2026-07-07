@@ -5,6 +5,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import kotlin.math.abs
+import kotlin.math.max
 import kotlin.math.sqrt
 
 /**
@@ -314,5 +315,78 @@ class StarAligner @Inject constructor() {
         val sorted = list.sorted()
         val mid = sorted.size / 2
         return if (sorted.size % 2 == 0) (sorted[mid - 1] + sorted[mid]) / 2f else sorted[mid]
+    }
+
+    /**
+     * Estimate the FWHM (Full Width at Half Maximum) of a single star.
+     * Computes moment-based standard deviation in a 7x7 window around centroid.
+     */
+    fun estimateFwhm(luma: ByteArray, width: Int, height: Int, star: Star): Float {
+        val cx = star.x.toInt()
+        val cy = star.y.toInt()
+        val radius = 3
+
+        var minVal = 255
+        for (dy in -radius..radius) {
+            for (dx in -radius..radius) {
+                val px = cx + dx
+                val py = cy + dy
+                if (px in 0 until width && py in 0 until height) {
+                    val v = luma[py * width + px].toInt() and 0xFF
+                    if (v < minVal) minVal = v
+                }
+            }
+        }
+
+        var sumW = 0.0
+        var sumDistSqW = 0.0
+        for (dy in -radius..radius) {
+            for (dx in -radius..radius) {
+                val px = cx + dx
+                val py = cy + dy
+                if (px in 0 until width && py in 0 until height) {
+                    val v = luma[py * width + px].toInt() and 0xFF
+                    val w = max(0f, (v - minVal).toFloat()).toDouble()
+                    val distSq = (px - star.x) * (px - star.x) + (py - star.y) * (py - star.y)
+                    sumW += w
+                    sumDistSqW += distSq * w
+                }
+            }
+        }
+
+        if (sumW <= 0) return 0f
+        val sigmaSq = sumDistSqW / sumW
+        val sigma = Math.sqrt(sigmaSq)
+        return (2.35482 * sigma).toFloat()
+    }
+
+    /**
+     * Compute average FWHM of top stars to evaluate frame sharpness.
+     */
+    fun calculateAverageFwhm(bitmap: Bitmap, stars: List<Star>): Float {
+        if (stars.isEmpty()) return 0f
+        val width = bitmap.width
+        val height = bitmap.height
+        val pixels = IntArray(width * height)
+        bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
+        val luma = ByteArray(width * height)
+        for (i in pixels.indices) {
+            val r = (pixels[i] shr 16) and 0xFF
+            val g = (pixels[i] shr 8) and 0xFF
+            val b = pixels[i] and 0xFF
+            luma[i] = ((0.2126 * r + 0.7152 * g + 0.0722 * b).toInt().coerceIn(0, 255)).toByte()
+        }
+
+        val targetStars = stars.take(10)
+        var sumFwhm = 0f
+        var count = 0
+        for (star in targetStars) {
+            val f = estimateFwhm(luma, width, height, star)
+            if (f > 0.1f && f < 20f) {
+                sumFwhm += f
+                count++
+            }
+        }
+        return if (count > 0) sumFwhm / count else 0f
     }
 }

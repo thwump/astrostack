@@ -10,6 +10,7 @@ import com.astrostack.app.data.ImageRepository
 import com.astrostack.app.stacking.StarAligner
 import com.astrostack.app.stacking.HistogramStretch
 import com.astrostack.app.stacking.ImageStacker
+import com.astrostack.app.stacking.GradientRemoval
 import java.io.FileOutputStream
 import dagger.hilt.android.qualifiers.ApplicationContext
 
@@ -42,6 +43,7 @@ class CaptureController @Inject constructor(
     private val repository: ImageRepository,
     private val starAligner: StarAligner,
     private val histogramStretch: HistogramStretch,
+    private val gradientRemoval: GradientRemoval,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -51,17 +53,26 @@ class CaptureController @Inject constructor(
     private val _hasMasterDark = MutableStateFlow(false)
     val hasMasterDark: StateFlow<Boolean> = _hasMasterDark.asStateFlow()
 
+    private val _hasMasterFlat = MutableStateFlow(false)
+    val hasMasterFlat: StateFlow<Boolean> = _hasMasterFlat.asStateFlow()
+
     init {
         val masterDarkFile = File(context.filesDir, "calibration/master_dark_full.png")
         _hasMasterDark.value = masterDarkFile.exists()
+        val masterFlatFile = File(context.filesDir, "calibration/master_flat_full.png")
+        _hasMasterFlat.value = masterFlatFile.exists()
     }
 
     fun clearMasterDark() {
-        val dir = File(context.filesDir, "calibration")
-        if (dir.exists()) {
-            dir.deleteRecursively()
-        }
+        File(context.filesDir, "calibration/master_dark_full.png").delete()
+        File(context.filesDir, "calibration/master_dark_preview.png").delete()
         _hasMasterDark.value = false
+    }
+
+    fun clearMasterFlat() {
+        File(context.filesDir, "calibration/master_flat_full.png").delete()
+        File(context.filesDir, "calibration/master_flat_preview.png").delete()
+        _hasMasterFlat.value = false
     }
 
     private val _previewState = MutableStateFlow<PreviewState>(PreviewState.Loading)
@@ -155,6 +166,7 @@ class CaptureController @Inject constructor(
 
             var referenceStars: List<com.astrostack.app.stacking.StarAligner.Star>? = null
             var liveAccumulator: FloatArray? = null
+            var referenceFwhm = 0f
             var liveWidth = 0
             var liveHeight = 0
 
@@ -228,6 +240,23 @@ class CaptureController @Inject constructor(
                                         }
                                     }
                                 }
+                                // Apply master flat correction if available
+                                if (_hasMasterFlat.value) {
+                                    val previewFlatFile = File(context.filesDir, "calibration/master_flat_preview.png")
+                                    if (previewFlatFile.exists()) {
+                                        val flatBmp = BitmapFactory.decodeFile(previewFlatFile.absolutePath)
+                                        if (flatBmp != null) {
+                                            divideFlat(bmp, flatBmp)
+                                            flatBmp.recycle()
+                                        }
+                                    }
+                                }
+                                // Apply cosmetic hot pixel correction
+                                applyCosmeticCorrection(bmp)
+                                // Apply light pollution gradient removal if enabled
+                                if (settings.enableGradientRemoval) {
+                                    gradientRemoval.removeGradient(bmp)
+                                }
 
                                 val stars = starAligner.detectStars(bmp, starThreshold = settings.starThreshold, maxStars = 50)
                                 if (stars.size < settings.minStarCount) {
@@ -262,26 +291,45 @@ class CaptureController @Inject constructor(
                                     
                                     liveAccumulator = floats
                                     referenceStars = stars
+                                    referenceFwhm = starAligner.calculateAverageFwhm(bmp, stars)
                                     liveStackedCount = 1
                                     
                                     val stretchBmp = Bitmap.createBitmap(liveWidth, liveHeight, Bitmap.Config.ARGB_8888)
                                     stretchBmp.setPixels(pixels, 0, liveWidth, 0, 0, liveWidth, liveHeight)
-                                    val stretched = histogramStretch.autoStretch(stretchBmp)
+                                    val stretched = when (settings.stretchType) {
+                                        StretchType.HISTOGRAM -> histogramStretch.autoStretch(stretchBmp)
+                                        StretchType.ARCSINH -> histogramStretch.arcsinhStretch(stretchBmp)
+                                    }
                                     if (stretched !== stretchBmp) stretchBmp.recycle()
                                     
                                     _liveStackedBitmap.value = stretched
                                     bmp.recycle()
 
-                                    val msg = "Frame $totalCaptured: INITIALIZED reference frame. Detected ${stars.size} stars."
+                                    val msg = "Frame $totalCaptured: INITIALIZED reference frame. Detected ${stars.size} stars (FWHM = %.2fpx).".format(referenceFwhm)
                                     android.util.Log.d("AstroStack", msg)
                                     withContext(Dispatchers.IO) {
                                         diagWriter?.println(msg)
                                         diagWriter?.flush()
                                     }
                                 } else {
+                                    val targetFwhm = starAligner.calculateAverageFwhm(bmp, stars)
+                                    if (referenceFwhm > 0f && targetFwhm > referenceFwhm * 1.4f) {
+                                        bmp.recycle()
+                                        val msg = "Frame $totalCaptured: REJECTED. Blurry frame (FWHM = %.2fpx > 1.4 * Ref FWHM = %.2fpx).".format(targetFwhm, referenceFwhm)
+                                        android.util.Log.w("AstroStack", msg)
+                                        withContext(Dispatchers.IO) {
+                                            diagWriter?.println(msg)
+                                            diagWriter?.flush()
+                                        }
+                                        return@withContext false
+                                    }
+                                    if (referenceFwhm == 0f && targetFwhm > 0f) {
+                                        referenceFwhm = targetFwhm
+                                    }
+
                                     val offset = starAligner.computeTranslation(referenceStars!!, stars)
                                     val qual = starAligner.alignmentQuality(referenceStars!!, stars)
-                                    val msg = "Frame $totalCaptured: ALIGNED. Offset = (${offset.x}, ${offset.y}), Match Quality = ${(qual * 100).toInt()}% (Detected ${stars.size} stars)."
+                                    val msg = "Frame $totalCaptured: ALIGNED. Offset = (${offset.x}, ${offset.y}), Match Quality = ${(qual * 100).toInt()}% (Detected ${stars.size} stars, FWHM = %.2fpx).".format(targetFwhm)
                                     android.util.Log.d("AstroStack", msg)
                                     withContext(Dispatchers.IO) {
                                         diagWriter?.println(msg)
@@ -343,7 +391,10 @@ class CaptureController @Inject constructor(
                                     val displayBmp = Bitmap.createBitmap(liveWidth, liveHeight, Bitmap.Config.ARGB_8888)
                                     displayBmp.setPixels(displayPixels, 0, liveWidth, 0, 0, liveWidth, liveHeight)
                                     
-                                    val stretched = histogramStretch.autoStretch(displayBmp)
+                                    val stretched = when (settings.stretchType) {
+                                        StretchType.HISTOGRAM -> histogramStretch.autoStretch(displayBmp)
+                                        StretchType.ARCSINH -> histogramStretch.arcsinhStretch(displayBmp)
+                                    }
                                     if (stretched !== displayBmp) displayBmp.recycle()
                                     
                                     val oldBmp = _liveStackedBitmap.value
@@ -517,6 +568,115 @@ class CaptureController @Inject constructor(
     }
 
     /**
+     * Runs flat calibration loop: captures 10 frames with lens pointed at an
+     * evenly-lit white surface (e.g. white t-shirt over lens aimed at sky/screen),
+     * averages them, and saves Master Flat for vignetting and dust correction.
+     */
+    fun startFlatCalibration(settings: CaptureSettings) {
+        if (_sessionState.value !is CaptureSessionState.Idle) return
+
+        captureJob = scope.launch {
+            _sessionState.value = CaptureSessionState.CalibratingFlat(0, 10)
+            val calDir = File(context.filesDir, "calibration").also { it.mkdirs() }
+            val tempDir = File(context.filesDir, "calibration_flat_temp").also { it.mkdirs() }
+            val flatBitmaps = mutableListOf<Bitmap>()
+
+            try {
+                for (i in 1..10) {
+                    if (coroutineContext[kotlinx.coroutines.Job]?.isActive != true) break
+
+                    _sessionState.value = CaptureSessionState.CalibratingFlat(i - 1, 10)
+                    val tempFile = File(tempDir, "temp_flat_$i.dng")
+
+                    // Capture RAW frame
+                    withContext(Dispatchers.IO) {
+                        cameraManager.captureAndSaveDng(
+                            settings = settings,
+                            outputFile = tempFile,
+                            onShutterCallback = {}
+                        )
+                    }
+
+                    // Decode DNG frame
+                    val decoded = withContext(Dispatchers.Default) {
+                        val opts = BitmapFactory.Options().apply {
+                            inPreferredConfig = Bitmap.Config.ARGB_8888
+                        }
+                        BitmapFactory.decodeFile(tempFile.absolutePath, opts)
+                    }
+                    if (decoded != null) {
+                        flatBitmaps.add(decoded)
+                    }
+
+                    tempFile.delete()
+                }
+
+                if (flatBitmaps.size >= 5) {
+                    _sessionState.value = CaptureSessionState.CalibratingFlat(10, 10)
+                    withContext(Dispatchers.Default) {
+                        val width = flatBitmaps[0].width
+                        val height = flatBitmaps[0].height
+                        val size = width * height
+
+                        val sumR = FloatArray(size)
+                        val sumG = FloatArray(size)
+                        val sumB = FloatArray(size)
+
+                        val pixels = IntArray(size)
+                        for (bmp in flatBitmaps) {
+                            bmp.getPixels(pixels, 0, width, 0, 0, width, height)
+                            for (p in 0 until size) {
+                                val pix = pixels[p]
+                                sumR[p] += ((pix shr 16) and 0xFF).toFloat()
+                                sumG[p] += ((pix shr 8) and 0xFF).toFloat()
+                                sumB[p] += (pix and 0xFF).toFloat()
+                            }
+                        }
+
+                        val avgPixels = IntArray(size)
+                        val count = flatBitmaps.size.toFloat()
+                        for (p in 0 until size) {
+                            val r = (sumR[p] / count + 0.5f).toInt().coerceIn(0, 255)
+                            val g = (sumG[p] / count + 0.5f).toInt().coerceIn(0, 255)
+                            val b = (sumB[p] / count + 0.5f).toInt().coerceIn(0, 255)
+                            avgPixels[p] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
+                        }
+
+                        val masterFlatFull = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                        masterFlatFull.setPixels(avgPixels, 0, width, 0, 0, width, height)
+
+                        val fullFile = File(calDir, "master_flat_full.png")
+                        java.io.FileOutputStream(fullFile).use { out ->
+                            masterFlatFull.compress(Bitmap.CompressFormat.PNG, 100, out)
+                        }
+
+                        val previewWidth = width / 4
+                        val previewHeight = height / 4
+                        val masterFlatPreview = Bitmap.createScaledBitmap(masterFlatFull, previewWidth, previewHeight, true)
+                        val previewFile = File(calDir, "master_flat_preview.png")
+                        java.io.FileOutputStream(previewFile).use { out ->
+                            masterFlatPreview.compress(Bitmap.CompressFormat.PNG, 100, out)
+                        }
+
+                        masterFlatFull.recycle()
+                        masterFlatPreview.recycle()
+                    }
+
+                    _hasMasterFlat.value = true
+                    _sessionState.value = CaptureSessionState.Idle
+                } else {
+                    _sessionState.value = CaptureSessionState.Error("Flat calibration failed: not enough frames decoded.")
+                }
+            } catch (e: Exception) {
+                _sessionState.value = CaptureSessionState.Error("Flat calibration failed: ${e.message}", e)
+            } finally {
+                flatBitmaps.forEach { it.recycle() }
+                tempDir.deleteRecursively()
+            }
+        }
+    }
+
+    /**
      * Stops the continuous capture session and compiles the final high-resolution stacked image.
      */
     fun stopCaptureSession() {
@@ -541,8 +701,10 @@ class CaptureController @Inject constructor(
                             val config = com.astrostack.app.stacking.StackingConfig(
                                 driftHandling = settings.driftHandling,
                                 minStarCount = settings.minStarCount,
+                                stretchType = settings.stretchType,
+                                enableGradientRemoval = settings.enableGradientRemoval,
                             )
-                            ImageStacker(context, starAligner, histogramStretch).stack(
+                            ImageStacker(context, starAligner, histogramStretch, gradientRemoval).stack(
                                 files = files,
                                 config = config,
                                 onProgress = {}
@@ -558,10 +720,29 @@ class CaptureController @Inject constructor(
                     _liveStackedBitmap.value?.copy(Bitmap.Config.ARGB_8888, true)
                         ?: throw Exception("No stacked preview available.")
                 } else {
-                    // No stacking was requested; just exit without final result
-                    _sessionState.value = CaptureSessionState.Idle
-                    clearLiveStack()
-                    return@launch
+                    // Single frame capture (scouting / Quick Night Sight)
+                    val files = repository.getDngFilesForSession(sessionId)
+                    if (files.isNotEmpty()) {
+                        withContext(Dispatchers.Default) {
+                            val opts = BitmapFactory.Options().apply {
+                                inSampleSize = 1
+                                inPreferredConfig = Bitmap.Config.ARGB_8888
+                            }
+                            val bmp = BitmapFactory.decodeFile(files[0].absolutePath, opts)
+                                ?: throw Exception("Failed to decode single capture frame.")
+                            applyCosmeticCorrection(bmp)
+                            val stretched = when (settings.stretchType) {
+                                StretchType.HISTOGRAM -> histogramStretch.autoStretch(bmp)
+                                StretchType.ARCSINH -> histogramStretch.arcsinhStretch(bmp)
+                            }
+                            if (stretched !== bmp) bmp.recycle()
+                            stretched
+                        }
+                    } else {
+                        _sessionState.value = CaptureSessionState.Idle
+                        clearLiveStack()
+                        return@launch
+                    }
                 }
 
                 // Save final output PNG to local app storage
@@ -639,6 +820,100 @@ class CaptureController @Inject constructor(
             srcPixels[i] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
         }
         src.setPixels(srcPixels, 0, width, 0, 0, width, height)
+    }
+
+    /**
+     * Divides [src] by the normalized [flat] frame to correct vignetting and dust.
+     * The flat is normalized so its mean brightness = 1.0, then each pixel is divided.
+     */
+    private fun divideFlat(src: Bitmap, flat: Bitmap) {
+        val width = src.width
+        val height = src.height
+        if (flat.width != width || flat.height != height) return
+
+        val size = width * height
+        val srcPixels = IntArray(size)
+        val flatPixels = IntArray(size)
+        src.getPixels(srcPixels, 0, width, 0, 0, width, height)
+        flat.getPixels(flatPixels, 0, width, 0, 0, width, height)
+
+        // Calculate mean brightness of flat for normalization
+        var sumLuma = 0.0
+        for (i in 0 until size) {
+            val fp = flatPixels[i]
+            val fr = (fp shr 16) and 0xFF
+            val fg = (fp shr 8) and 0xFF
+            val fb = fp and 0xFF
+            sumLuma += (0.299 * fr + 0.587 * fg + 0.114 * fb)
+        }
+        val meanLuma = (sumLuma / size).toFloat()
+        if (meanLuma < 1f) return // Flat is too dark, skip
+
+        for (i in 0 until size) {
+            val sp = srcPixels[i]
+            val fp = flatPixels[i]
+
+            val sr = (sp shr 16) and 0xFF
+            val sg = (sp shr 8) and 0xFF
+            val sb = sp and 0xFF
+
+            val fr = ((fp shr 16) and 0xFF).toFloat() / meanLuma
+            val fg = ((fp shr 8) and 0xFF).toFloat() / meanLuma
+            val fb = (fp and 0xFF).toFloat() / meanLuma
+
+            // Divide src by normalized flat, clamp to [0, 255]
+            val r = if (fr > 0.01f) (sr / fr).toInt().coerceIn(0, 255) else sr
+            val g = if (fg > 0.01f) (sg / fg).toInt().coerceIn(0, 255) else sg
+            val b = if (fb > 0.01f) (sb / fb).toInt().coerceIn(0, 255) else sb
+
+            srcPixels[i] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
+        }
+        src.setPixels(srcPixels, 0, width, 0, 0, width, height)
+    }
+
+    private fun applyCosmeticCorrection(src: Bitmap) {
+        val width = src.width
+        val height = src.height
+        val size = width * height
+        val pixels = IntArray(size)
+        src.getPixels(pixels, 0, width, 0, 0, width, height)
+
+        val outPixels = pixels.copyOf()
+
+        val dx = intArrayOf(-1, 0, 1, -1, 1, -1, 0, 1)
+        val dy = intArrayOf(-1, -1, -1, 0, 0, 1, 1, 1)
+
+        for (y in 1 until height - 1) {
+            for (x in 1 until width - 1) {
+                val idx = y * width + x
+                val p = pixels[idx]
+                val luma = (0.2126f * ((p shr 16) and 0xFF) + 0.7152f * ((p shr 8) and 0xFF) + 0.0722f * (p and 0xFF)).toInt()
+
+                var maxNeighborLuma = 0
+                var neighborSumR = 0
+                var neighborSumG = 0
+                var neighborSumB = 0
+
+                for (n in 0 until 8) {
+                    val np = pixels[(y + dy[n]) * width + (x + dx[n])]
+                    val nl = (0.2126f * ((np shr 16) and 0xFF) + 0.7152f * ((np shr 8) and 0xFF) + 0.0722f * (np and 0xFF)).toInt()
+                    if (nl > maxNeighborLuma) {
+                        maxNeighborLuma = nl
+                    }
+                    neighborSumR += (np shr 16) and 0xFF
+                    neighborSumG += (np shr 8) and 0xFF
+                    neighborSumB += np and 0xFF
+                }
+
+                if (luma > maxNeighborLuma + 50) {
+                    val r = neighborSumR / 8
+                    val g = neighborSumG / 8
+                    val b = neighborSumB / 8
+                    outPixels[idx] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
+                }
+            }
+        }
+        src.setPixels(outPixels, 0, width, 0, 0, width, height)
     }
 
     private fun clearLiveStack() {

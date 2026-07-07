@@ -12,6 +12,7 @@ import java.io.PrintWriter
 import java.io.FileWriter
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
+import com.astrostack.app.camera.StretchType
 import javax.inject.Inject
 import kotlin.math.max
 import kotlin.math.min
@@ -28,6 +29,7 @@ class ImageStacker @Inject constructor(
     @ApplicationContext private val context: Context,
     private val starAligner: StarAligner,
     private val histogramStretch: HistogramStretch,
+    private val gradientRemoval: GradientRemoval,
 ) {
     // ─── Public API ───────────────────────────────────────────────────────────
 
@@ -62,6 +64,24 @@ class ImageStacker @Inject constructor(
             }
         }
 
+        // Load and apply Master Flat if available
+        val masterFlatFile = File(context.filesDir, "calibration/master_flat_full.png")
+        if (masterFlatFile.exists()) {
+            val flatBmp = BitmapFactory.decodeFile(masterFlatFile.absolutePath)
+            if (flatBmp != null) {
+                bitmaps.forEach { divideFlat(it, flatBmp) }
+                flatBmp.recycle()
+            }
+        }
+
+        // Apply cosmetic hot pixel correction
+        bitmaps.forEach { applyCosmeticCorrection(it) }
+
+        // Apply gradient removal if enabled
+        if (config.enableGradientRemoval) {
+            bitmaps.forEach { gradientRemoval.removeGradient(it) }
+        }
+
         val parentDir = files[0].parentFile
         var diagWriter: PrintWriter? = null
         try {
@@ -82,7 +102,8 @@ class ImageStacker @Inject constructor(
 
         // ── 2. Detect stars & Quality check & Calculate offsets ────────────────
         val refStars = starAligner.detectStars(bitmaps[0], starThreshold = config.starThreshold, maxStars = 100)
-        val msg1 = "Reference frame (File 1): Detected ${refStars.size} stars using threshold ${config.starThreshold}."
+        val refFwhm = starAligner.calculateAverageFwhm(bitmaps[0], refStars)
+        val msg1 = "Reference frame (File 1): Detected ${refStars.size} stars (FWHM = %.2fpx) using threshold ${config.starThreshold}.".format(refFwhm)
         android.util.Log.d("AstroStack", msg1)
         diagWriter?.println(msg1)
         diagWriter?.flush()
@@ -101,9 +122,23 @@ class ImageStacker @Inject constructor(
         validBitmaps.add(bitmaps[0])
         offsets.add(StarAligner.RigidTransform(0f, 0f, 0f))
 
+        var referenceFwhm = refFwhm
         bitmaps.drop(1).forEachIndexed { idx, bmp ->
             val stars = starAligner.detectStars(bmp, starThreshold = config.starThreshold, maxStars = 100)
             if (stars.size >= config.minStarCount) {
+                val targetFwhm = starAligner.calculateAverageFwhm(bmp, stars)
+                if (referenceFwhm > 0f && targetFwhm > referenceFwhm * 1.4f) {
+                    val msg = "Frame ${idx + 2}: REJECTED. Blurry frame (FWHM = %.2fpx > 1.4 * Ref FWHM = %.2fpx).".format(targetFwhm, referenceFwhm)
+                    android.util.Log.w("AstroStack", msg)
+                    diagWriter?.println(msg)
+                    diagWriter?.flush()
+                    bmp.recycle()
+                    return@forEachIndexed
+                }
+                if (referenceFwhm == 0f && targetFwhm > 0f) {
+                    referenceFwhm = targetFwhm
+                }
+
                 val transform = if (config.alignFrames) {
                     starAligner.estimateRigidTransform(refStars, stars, width, height)
                 } else {
@@ -111,7 +146,7 @@ class ImageStacker @Inject constructor(
                 }
                 val qual = starAligner.rigidAlignmentQuality(refStars, stars, width, height)
                 val angleDeg = Math.toDegrees(transform.angleRad.toDouble()).toFloat()
-                val msg = "Frame ${idx + 2}: Detected ${stars.size} stars. Alignment offset = (${transform.tx}, ${transform.ty}), Rotation = ${"%.2f".format(angleDeg)}°, Match Quality = ${(qual * 100).toInt()}%."
+                val msg = "Frame ${idx + 2}: Detected ${stars.size} stars. Alignment offset = (${transform.tx}, ${transform.ty}), Rotation = ${"%.2f".format(angleDeg)}°, Match Quality = ${(qual * 100).toInt()}%, FWHM = %.2fpx.".format(angleDeg, targetFwhm)
                 android.util.Log.d("AstroStack", msg)
                 diagWriter?.println(msg)
                 diagWriter?.flush()
@@ -239,7 +274,14 @@ class ImageStacker @Inject constructor(
         }
 
         // ── 7. Histogram stretch ───────────────────────────────────────────────
-        val stretched = if (config.skipStretch) resultBitmap else histogramStretch.autoStretch(resultBitmap)
+        val stretched = if (config.skipStretch) {
+            resultBitmap
+        } else {
+            when (config.stretchType) {
+                StretchType.HISTOGRAM -> histogramStretch.autoStretch(resultBitmap)
+                StretchType.ARCSINH -> histogramStretch.arcsinhStretch(resultBitmap)
+            }
+        }
         onProgress(1.0f)
 
         // Clean up
@@ -299,6 +341,94 @@ class ImageStacker @Inject constructor(
             srcPixels[i] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
         }
         src.setPixels(srcPixels, 0, width, 0, 0, width, height)
+    }
+
+    private fun divideFlat(src: Bitmap, flat: Bitmap) {
+        val width = src.width
+        val height = src.height
+        if (flat.width != width || flat.height != height) return
+
+        val size = width * height
+        val srcPixels = IntArray(size)
+        val flatPixels = IntArray(size)
+        src.getPixels(srcPixels, 0, width, 0, 0, width, height)
+        flat.getPixels(flatPixels, 0, width, 0, 0, width, height)
+
+        var sumLuma = 0.0
+        for (i in 0 until size) {
+            val fp = flatPixels[i]
+            val fr = (fp shr 16) and 0xFF
+            val fg = (fp shr 8) and 0xFF
+            val fb = fp and 0xFF
+            sumLuma += (0.299 * fr + 0.587 * fg + 0.114 * fb)
+        }
+        val meanLuma = (sumLuma / size).toFloat()
+        if (meanLuma < 1f) return
+
+        for (i in 0 until size) {
+            val sp = srcPixels[i]
+            val fp = flatPixels[i]
+
+            val sr = (sp shr 16) and 0xFF
+            val sg = (sp shr 8) and 0xFF
+            val sb = sp and 0xFF
+
+            val fr = ((fp shr 16) and 0xFF).toFloat() / meanLuma
+            val fg = ((fp shr 8) and 0xFF).toFloat() / meanLuma
+            val fb = (fp and 0xFF).toFloat() / meanLuma
+
+            val r = if (fr > 0.01f) (sr / fr).toInt().coerceIn(0, 255) else sr
+            val g = if (fg > 0.01f) (sg / fg).toInt().coerceIn(0, 255) else sg
+            val b = if (fb > 0.01f) (sb / fb).toInt().coerceIn(0, 255) else sb
+
+            srcPixels[i] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
+        }
+        src.setPixels(srcPixels, 0, width, 0, 0, width, height)
+    }
+
+    private fun applyCosmeticCorrection(src: Bitmap) {
+        val width = src.width
+        val height = src.height
+        val size = width * height
+        val pixels = IntArray(size)
+        src.getPixels(pixels, 0, width, 0, 0, width, height)
+
+        val outPixels = pixels.copyOf()
+
+        val dx = intArrayOf(-1, 0, 1, -1, 1, -1, 0, 1)
+        val dy = intArrayOf(-1, -1, -1, 0, 0, 1, 1, 1)
+
+        for (y in 1 until height - 1) {
+            for (x in 1 until width - 1) {
+                val idx = y * width + x
+                val p = pixels[idx]
+                val luma = (0.2126f * ((p shr 16) and 0xFF) + 0.7152f * ((p shr 8) and 0xFF) + 0.0722f * (p and 0xFF)).toInt()
+
+                var maxNeighborLuma = 0
+                var neighborSumR = 0
+                var neighborSumG = 0
+                var neighborSumB = 0
+
+                for (n in 0 until 8) {
+                    val np = pixels[(y + dy[n]) * width + (x + dx[n])]
+                    val nl = (0.2126f * ((np shr 16) and 0xFF) + 0.7152f * ((np shr 8) and 0xFF) + 0.0722f * (np and 0xFF)).toInt()
+                    if (nl > maxNeighborLuma) {
+                        maxNeighborLuma = nl
+                    }
+                    neighborSumR += (np shr 16) and 0xFF
+                    neighborSumG += (np shr 8) and 0xFF
+                    neighborSumB += np and 0xFF
+                }
+
+                if (luma > maxNeighborLuma + 50) {
+                    val r = neighborSumR / 8
+                    val g = neighborSumG / 8
+                    val b = neighborSumB / 8
+                    outPixels[idx] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
+                }
+            }
+        }
+        src.setPixels(outPixels, 0, width, 0, 0, width, height)
     }
 
     // ─── Strip stacking ───────────────────────────────────────────────────────

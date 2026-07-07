@@ -13,6 +13,7 @@ import com.astrostack.app.camera.CaptureSessionState
 import com.astrostack.app.camera.CaptureSettings
 import com.astrostack.app.camera.ExposurePreset
 import com.astrostack.app.camera.PreviewState
+import com.astrostack.app.camera.StretchType
 import com.astrostack.app.stacking.DriftHandling
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,6 +39,10 @@ data class CameraUiState(
     val starThreshold: Int = 180,
     val minStarCount: Int = 5,
     val driftHandling: DriftHandling = DriftHandling.CROP,
+    val stretchType: StretchType = StretchType.HISTOGRAM,
+    val enableGradientRemoval: Boolean = false,
+    val hasMasterDark: Boolean = false,
+    val hasMasterFlat: Boolean = false,
 )
 
 @HiltViewModel
@@ -49,6 +54,7 @@ class CameraViewModel @Inject constructor(
     val uiState: StateFlow<CameraUiState> = _uiState.asStateFlow()
 
     val hasMasterDark: StateFlow<Boolean> = captureController.hasMasterDark
+    val hasMasterFlat: StateFlow<Boolean> = captureController.hasMasterFlat
 
     init {
         // Mirror controller states into UI state
@@ -77,6 +83,16 @@ class CameraViewModel @Inject constructor(
         viewModelScope.launch {
             captureController.liveStackedBitmap.collect { bmp ->
                 _uiState.update { it.copy(liveStackedBitmap = bmp) }
+            }
+        }
+        viewModelScope.launch {
+            captureController.hasMasterDark.collect { has ->
+                _uiState.update { it.copy(hasMasterDark = has) }
+            }
+        }
+        viewModelScope.launch {
+            captureController.hasMasterFlat.collect { has ->
+                _uiState.update { it.copy(hasMasterFlat = has) }
             }
         }
     }
@@ -133,6 +149,14 @@ class CameraViewModel @Inject constructor(
         _uiState.update { it.copy(driftHandling = drift) }
     }
 
+    fun setStretchType(stretch: StretchType) {
+        _uiState.update { it.copy(stretchType = stretch) }
+    }
+
+    fun setEnableGradientRemoval(enabled: Boolean) {
+        _uiState.update { it.copy(enableGradientRemoval = enabled) }
+    }
+
     // ─── Calibration ──────────────────────────────────────────────────────────
 
     fun startDarkCalibration() {
@@ -153,6 +177,24 @@ class CameraViewModel @Inject constructor(
         captureController.clearMasterDark()
     }
 
+    fun startFlatCalibration() {
+        val state = _uiState.value
+        val settings = CaptureSettings(
+            exposureTimeNs = state.exposureTimeNs,
+            iso = state.iso,
+            saveAllPhotos = false,
+            stackPhotos = false,
+            starThreshold = state.starThreshold,
+            minStarCount = state.minStarCount,
+            driftHandling = state.driftHandling
+        )
+        captureController.startFlatCalibration(settings)
+    }
+
+    fun clearMasterFlat() {
+        captureController.clearMasterFlat()
+    }
+
     // ─── Capture ──────────────────────────────────────────────────────────────
 
     @RequiresPermission(Manifest.permission.CAMERA)
@@ -168,6 +210,27 @@ class CameraViewModel @Inject constructor(
             starThreshold = state.starThreshold,
             minStarCount = state.minStarCount,
             driftHandling = state.driftHandling,
+            stretchType = state.stretchType,
+            enableGradientRemoval = state.enableGradientRemoval,
+        )
+        captureController.startCaptureSession(settings)
+    }
+
+    @RequiresPermission(Manifest.permission.CAMERA)
+    fun startScoutingCapture() {
+        val state = _uiState.value
+        val settings = CaptureSettings(
+            exposureTimeNs = 1_500_000_000L, // 1.5s fast exposure
+            iso = kotlin.math.min(state.capabilities?.maxIso ?: 3200, 3200),
+            saveAllPhotos = false,
+            stackPhotos = false, // single frame capture
+            disableOis = state.disableOis,
+            autoFocus = false,
+            starThreshold = state.starThreshold,
+            minStarCount = state.minStarCount,
+            driftHandling = state.driftHandling,
+            stretchType = state.stretchType,
+            enableGradientRemoval = state.enableGradientRemoval,
         )
         captureController.startCaptureSession(settings)
     }
