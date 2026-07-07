@@ -7,16 +7,31 @@ An Android astrophotography camera app that captures RAW sensor frames and stack
 - **RAW / DNG capture** via Camera2 API with full manual control
   - ISO 100 – device maximum
   - Shutter speeds from 1 s to 30 s
-  - Infinity focus (hyperfocal lock)
+  - Hyperfocal lock (**Infinity Focus lock 🌌**) & continuous focus (**Auto Focus 🔍**) toggle
   - OIS disabled (use a tracking mount or fixed tripod)
   - All on-device noise reduction disabled — stacking handles it
-- **Frame stacking** with five algorithms:
+- **Continuous Stacking & Indefinite Capture**:
+  - Captures indefinitely until manually stopped or cancelled.
+  - **Save All RAW Frames Toggle**: Deletes RAW DNG files automatically from local storage after real-time stacking to conserve space (saving ~25MB per frame) when disabled.
+  - **Auto Stack Toggle**: Performs real-time aligned stacking in the background while updating viewfinder counts.
+- **Drift Alignment & Quality Rejection**:
+  - Aligns frames dynamically in real-time, matching star centroids.
+  - Collapsible **Stacking Settings ⚙** panel allows users to configure Drift Handling (None/Crop/Mosaic), minimum star count rejection limit, and star detection sensitivity (20-255 threshold) before capture starts.
+- **Streamlined Results Screen**:
+  - Bypasses post-capture parameters setup once live stacking completes.
+  - Instantly displays the finalized stacked image, runs Astrometry.net Plate Solving (with catalog star labels), and exports results.
+- **High-Resolution Astronomical Exporting**:
+  - Export stacked images as native 16-bit **TIFF** or standard astronomical **FITS** (Flexible Image Transport System) directly to the phone's public `Pictures/AstroStack/` gallery.
+- **Immersive Fullscreen View ⛶**:
+  - Toggles a clean, distraction-free viewfinder preview (fading all top/bottom controls away) so you can watch stacked astro-images improve cleanly over time.
+- **Real-Time Alignment Diagnostics**:
+  - Outputs real-time logcat records (`adb logcat | grep AstroStack`) and writes a localized `alignment_diagnostics.txt` file to the session captures folder on disk. Shows detected star count, pixel translation offsets (dx, dy), and match quality percentage.
+- **Frame stacking algorithms**:
   - Mean — fastest, best SNR
   - Median — immune to satellite trails
   - Sigma Clipping — best all-round (κ configurable, default 2.0)
   - Winsorized Sigma — clipping with boundary replacement
   - Maximum — star trails / comets
-- **Star alignment** — translational drift correction between frames using centroid matching
 - **Histogram stretch** — automatic midtone stretch (AutoSTF-like) to reveal faint nebulosity
 - **Dark red UI** — preserves night dark adaptation at the telescope
 - **Gallery** — browse and manage all capture sessions
