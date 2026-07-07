@@ -129,6 +129,12 @@ This walkthrough outlines all the major enhancements integrated into AstroStack 
 - Corrects both live previews and final high-resolution offline stacks.
 - **Location**: [CaptureController.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/camera/CaptureController.kt) and [ImageStacker.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/stacking/ImageStacker.kt)
 
+### 21. Scrollable Bottom Settings Container (System Status Bar Padding Fix)
+- Wrapped the settings card lists (Calibration, Stacking Settings, toggles, manual controls) in a scrollable inner `Column` using `Modifier.weight(1f, fill = false)` and `Modifier.verticalScroll(...)`.
+- Keeps the main red shutter/capture controls pinned to the bottom of the screen.
+- Prevents the panels from expanding upwards past the screen boundaries and overlapping with the system status bar, ensuring manual focus controls (`Infinity Focus 🌌` and `Auto Focus 🔍`) remain touch-accessible on all devices.
+- **Location**: [CameraScreen.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/ui/CameraScreen.kt)
+
 ---
 
 ## Verification and Compile Checks
@@ -147,4 +153,5 @@ BUILD SUCCESSFUL in 10s
 4. **Master Dark Calibration**: Tap Calibrate under Dark Frame Calibration, cover the lens, tap Start, watch the 5-frame progress.
 5. **Master Flat Calibration**: Tap Calibrate under Flat Frame Calibration, point at a bright even surface, tap Start, watch the 10-frame progress. Confirm status indicator turns green.
 6. **De-rotation Test**: Rotate phone slightly while pointing at stars. Check logcat with `adb logcat -s AstroStack`.
+7. **Scrollable Settings Container**: Expand both Stacking Settings and Calibration blocks. Confirm that you can scroll down to access the settings and scroll back up to touch the manual focus mode controls (`Infinity Focus 🌌` / `Auto Focus 🔍`) without them being pushed off-screen or cut off by the status bar.
 
