@@ -3,6 +3,9 @@ package com.astrostack.app.ui.theme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 
 /**
  * Deep-red dark theme for AstroStack.
@@ -39,11 +42,21 @@ private val AstroColorScheme = darkColorScheme(
     outlineVariant      = Astro_Surface3,
 )
 
+object ThemeConfig {
+    var isRedScreenMode by mutableStateOf(true) // default to red screen
+}
+
 @Composable
 fun AstroStackTheme(content: @Composable () -> Unit) {
+    val colorScheme = if (ThemeConfig.isRedScreenMode) {
+        AstroColorScheme
+    } else {
+        // Standard Material 3 dark color scheme for daytime/default brightness
+        darkColorScheme()
+    }
     MaterialTheme(
-        colorScheme = AstroColorScheme,
-        typography  = androidx.compose.material3.Typography(), // default Material 3 type scale
+        colorScheme = colorScheme,
+        typography  = androidx.compose.material3.Typography(),
         content     = content,
     )
 }

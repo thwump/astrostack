@@ -129,11 +129,22 @@ This walkthrough outlines all the major enhancements integrated into AstroStack 
 - Corrects both live previews and final high-resolution offline stacks.
 - **Location**: [CaptureController.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/camera/CaptureController.kt) and [ImageStacker.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/stacking/ImageStacker.kt)
 
-### 21. Scrollable Bottom Settings Container (System Status Bar Padding Fix)
-- Wrapped the settings card lists (Calibration, Stacking Settings, toggles, manual controls) in a scrollable inner `Column` using `Modifier.weight(1f, fill = false)` and `Modifier.verticalScroll(...)`.
-- Keeps the main red shutter/capture controls pinned to the bottom of the screen.
-- Prevents the panels from expanding upwards past the screen boundaries and overlapping with the system status bar, ensuring manual focus controls (`Infinity Focus 🌌` and `Auto Focus 🔍`) remain touch-accessible on all devices.
+### 21. Unified Overlay Container (System Status Bar Padding Fix)
+- Restructured the root overlay layout: placed the Top Bar and the Bottom Controls Column inside a single top-level overlay `Column` with `.statusBarsPadding().navigationBarsPadding()`.
+- Added a `Spacer(modifier = Modifier.weight(1f))` between the top bar and the bottom controls.
+- The scrollable settings Column inside bottom controls uses `.weight(1f, fill = false)`. It automatically shrinks and scrolls when expanded, but is bounded to never grow past the top bar, guaranteeing the focus controls (`Infinity Focus 🌌` and `Auto Focus 🔍`) remain 100% visible and touch-accessible.
 - **Location**: [CameraScreen.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/ui/CameraScreen.kt)
+
+### 22. Day/Night Theme Mode Switcher
+- Created a `ThemeConfig` global toggle in [Theme.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/ui/theme/Theme.kt).
+- Switches theme colors dynamically between the default high-contrast Material 3 Dark theme (Day Mode for default daylight visibility) and the deep-red Safelight theme (Night Mode to preserve dark adaptation).
+- Controlled via an emoji quick-toggle button in the top bar (🔴 for Night, ☀️ for Day) or a toggle switch inside the settings panel.
+- **Location**: [Theme.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/ui/theme/Theme.kt) and [CameraScreen.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/ui/CameraScreen.kt)
+
+### 23. Auto-Rotation Orientation Support (Portrait/Landscape)
+- Changed the screen orientation setting in the Android Manifest to `unspecified`.
+- The layout adapts gracefully when rotating the phone between portrait and landscape modes, with the scrollable settings box scaling automatically to fit the landscape viewport.
+- **Location**: [AndroidManifest.xml](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/AndroidManifest.xml)
 
 ---
 
@@ -142,8 +153,8 @@ This walkthrough outlines all the major enhancements integrated into AstroStack 
 All modules compiled cleanly under Gradle with all unit tests passing.
 
 ```
-BUILD SUCCESSFUL in 10s
-63 actionable tasks: 22 executed, 41 up-to-date
+BUILD SUCCESSFUL in 14s
+63 actionable tasks: 26 executed, 37 up-to-date
 ```
 
 ### Manual Verification Steps
@@ -152,6 +163,8 @@ BUILD SUCCESSFUL in 10s
 3. **Quick Scout**: Tap the Scout button in the top bar. Verify a single frame is captured, stretched, and displayed on the result screen.
 4. **Master Dark Calibration**: Tap Calibrate under Dark Frame Calibration, cover the lens, tap Start, watch the 5-frame progress.
 5. **Master Flat Calibration**: Tap Calibrate under Flat Frame Calibration, point at a bright even surface, tap Start, watch the 10-frame progress. Confirm status indicator turns green.
-6. **De-rotation Test**: Rotate phone slightly while pointing at stars. Check logcat with `adb logcat -s AstroStack`.
-7. **Scrollable Settings Container**: Expand both Stacking Settings and Calibration blocks. Confirm that you can scroll down to access the settings and scroll back up to touch the manual focus mode controls (`Infinity Focus 🌌` / `Auto Focus 🔍`) without them being pushed off-screen or cut off by the status bar.
+6. **Theme Switcher**: Tap the ☀️ emoji in the top bar. Verify the app switches from the red night-vision mode to standard Material 3 dark/daytime colors (with white text and standard styling). Tap the 🔴 emoji to return to red night-vision.
+7. **Orientation Rotation**: Rotate the phone to landscape mode. Verify the camera preview and settings overlay rotate gracefully.
+8. **Focus Controls Padding**: Check that the manual focus controls (`Infinity Focus 🌌` and `Auto Focus 🔍`) are drawn fully below the system status bar (and below the top bar) in both portrait and landscape orientation, and are fully touch-responsive.
+
 

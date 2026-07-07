@@ -122,65 +122,81 @@ fun CameraScreen(
         }
 
 
-        // ── Top bar ──────────────────────────────────────────────────────────
-        if (!isFullScreenView) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-                    .statusBarsPadding(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = "AstroStack",
-                    color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    // Quick Scout button — single stretched frame for target finding
-                    Button(
-                        onClick = { viewModel.startScoutingCapture() },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.25f),
-                            contentColor = MaterialTheme.colorScheme.tertiary
-                        ),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                        modifier = Modifier.height(32.dp)
-                    ) {
-                        Text("Scout \uD83D\uDD2D", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    }
-                    IconButton(onClick = { isFullScreenView = true }) {
-                        Icon(
-                            imageVector = Icons.Filled.Fullscreen,
-                            contentDescription = "Fullscreen",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                    IconButton(onClick = onNavigateToGallery) {
-                        Icon(
-                            Icons.Filled.Photo,
-                            contentDescription = "Gallery",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-            }
-        }
-
-        // ── Bottom controls ──────────────────────────────────────────────────
+        // ── UI Overlay Container ──────────────────────────────────────────────
         if (!isFullScreenView) {
             Column(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .background(Color.Black.copy(alpha = 0.75f))
+                    .fillMaxSize()
+                    .statusBarsPadding()
                     .navigationBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                // ── Top bar ──────────────────────────────────────────────────
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "AstroStack",
+                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Theme Switcher button
+                        IconButton(
+                            onClick = { com.astrostack.app.ui.theme.ThemeConfig.isRedScreenMode = !com.astrostack.app.ui.theme.ThemeConfig.isRedScreenMode }
+                        ) {
+                            Text(
+                                text = if (com.astrostack.app.ui.theme.ThemeConfig.isRedScreenMode) "🔴" else "☀️",
+                                fontSize = 18.sp
+                            )
+                        }
+                        // Quick Scout button — single stretched frame for target finding
+                        Button(
+                            onClick = { viewModel.startScoutingCapture() },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.25f),
+                                contentColor = MaterialTheme.colorScheme.tertiary
+                            ),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.height(32.dp)
+                        ) {
+                            Text("Scout 🔭", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                        IconButton(onClick = { isFullScreenView = true }) {
+                            Icon(
+                                imageVector = Icons.Filled.Fullscreen,
+                                contentDescription = "Fullscreen",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        IconButton(onClick = onNavigateToGallery) {
+                            Icon(
+                                Icons.Filled.Photo,
+                                contentDescription = "Gallery",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                // ── Bottom controls ──────────────────────────────────────────
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color.Black.copy(alpha = 0.75f))
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
                 Column(
                     modifier = Modifier
                         .weight(1f, fill = false)
@@ -325,6 +341,26 @@ fun CameraScreen(
                                     Switch(
                                         checked = uiState.enableGradientRemoval,
                                         onCheckedChange = { viewModel.setEnableGradientRemoval(it) },
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                            checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                                        )
+                                    )
+                                }
+
+                                // Theme Selector row
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Text("Night Vision (Red Screen)", color = Color.Gray, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        Text("Preserves night adaptation in dark sites", color = Color.DarkGray, fontSize = 9.sp)
+                                    }
+                                    Switch(
+                                        checked = com.astrostack.app.ui.theme.ThemeConfig.isRedScreenMode,
+                                        onCheckedChange = { com.astrostack.app.ui.theme.ThemeConfig.isRedScreenMode = it },
                                         colors = SwitchDefaults.colors(
                                             checkedThumbColor = MaterialTheme.colorScheme.primary,
                                             checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
@@ -731,6 +767,7 @@ fun CameraScreen(
 
                     else -> Unit
                 }
+            }
             }
         }
 
