@@ -85,7 +85,7 @@ class CaptureController @Inject constructor(
     private val _availableCameras = MutableStateFlow<List<CameraCapabilities>>(emptyList())
     val availableCameras: StateFlow<List<CameraCapabilities>> = _availableCameras.asStateFlow()
 
-    private var selectedCameraId: String? = null
+    private var selectedLensKey: String? = null
 
     // Live preview stack generated in real-time
     private val _liveStackedBitmap = MutableStateFlow<Bitmap?>(null)
@@ -120,8 +120,8 @@ class CaptureController @Inject constructor(
                 }
                 _availableCameras.value = list
                 
-                val currentId = selectedCameraId ?: list.firstOrNull()?.cameraId
-                val caps = list.firstOrNull { it.cameraId == currentId } ?: list.firstOrNull()
+                val currentKey = selectedLensKey ?: list.firstOrNull()?.let { it.physicalCameraId ?: it.cameraId }
+                val caps = list.firstOrNull { (it.physicalCameraId ?: it.cameraId) == currentKey } ?: list.firstOrNull()
 
                 if (caps == null) {
                     _previewState.value = PreviewState.NoCameraFound
@@ -141,9 +141,9 @@ class CaptureController @Inject constructor(
     }
 
     @RequiresPermission(Manifest.permission.CAMERA)
-    fun selectCamera(cameraId: String) {
-        if (selectedCameraId == cameraId) return
-        selectedCameraId = cameraId
+    fun selectCamera(lensKey: String) {
+        if (selectedLensKey == lensKey) return
+        selectedLensKey = lensKey
         val surface = activePreviewSurface ?: return
         scope.launch {
             withContext(Dispatchers.IO) {

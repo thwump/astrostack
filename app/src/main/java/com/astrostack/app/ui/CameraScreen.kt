@@ -226,6 +226,46 @@ fun CameraScreen(
                     onAutoFocusChanged = viewModel::setAutoFocus,
                 )
 
+                // Camera Lens Selector
+                if (uiState.availableCameras.size > 1) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        horizontalAlignment = Alignment.Start
+                    ) {
+                        Text(
+                            text = "Camera Lens Selection",
+                            color = Color.Gray,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            uiState.availableCameras.forEach { cap ->
+                                val selected = uiState.capabilities?.let { active ->
+                                    (active.physicalCameraId ?: active.cameraId) == (cap.physicalCameraId ?: cap.cameraId)
+                                } ?: false
+                                FilterChip(
+                                    selected = selected,
+                                    onClick = { viewModel.selectCamera(cap.physicalCameraId ?: cap.cameraId) },
+                                    label = { Text(cap.userLabel, fontSize = 11.sp) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                                        selectedLabelColor = MaterialTheme.colorScheme.primary,
+                                        labelColor = Color.LightGray
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+
                 // Toggles
                 if (uiState.sessionState is CaptureSessionState.Idle) {
                     Row(
@@ -274,31 +314,7 @@ fun CameraScreen(
                                     .padding(12.dp),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                // Camera Lens Selector
-                                if (uiState.availableCameras.size > 1) {
-                                    Column {
-                                        Text("Camera Lens Selector", color = Color.Gray, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            uiState.availableCameras.forEach { cap ->
-                                                val selected = uiState.capabilities?.cameraId == cap.cameraId
-                                                FilterChip(
-                                                    selected = selected,
-                                                    onClick = { viewModel.selectCamera(cap.cameraId) },
-                                                    label = { Text(cap.userLabel, fontSize = 11.sp) },
-                                                    colors = FilterChipDefaults.filterChipColors(
-                                                        selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
-                                                        selectedLabelColor = MaterialTheme.colorScheme.primary,
-                                                        labelColor = Color.LightGray
-                                                    )
-                                                )
-                                            }
-                                        }
-                                    }
-                                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = Color.White.copy(alpha = 0.05f))
-                                }
+
 
                                 // Drift Handling Segmented Control
                                 Column {

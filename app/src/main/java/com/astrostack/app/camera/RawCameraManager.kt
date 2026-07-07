@@ -57,6 +57,8 @@ class RawCameraManager @Inject constructor(
     var activeCharacteristics: CameraCharacteristics? = null
         private set
 
+    private var activePhysicalCameraId: String? = null
+
     // ─── Camera discovery ─────────────────────────────────────────────────────
 
     /**
@@ -80,15 +82,23 @@ class RawCameraManager @Inject constructor(
             }.getOrNull() ?: continue
 
             val facing = chars.get(CameraCharacteristics.LENS_FACING)
-            if (facing != CameraCharacteristics.LENS_FACING_BACK) continue
-
             val availableCaps = chars.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES)
             val hasRawCapability = availableCaps
                 ?.contains(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_RAW) == true
 
-            val map = chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP) ?: continue
-            val rawSizes = map.getOutputSizes(ImageFormat.RAW_SENSOR)
+            val map = chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+            val rawSizes = map?.getOutputSizes(ImageFormat.RAW_SENSOR)
             val largest = rawSizes?.maxByOrNull { it.width * it.height }
+
+            val physicalIds = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                chars.physicalCameraIds
+            } else {
+                emptySet()
+            }
+
+            android.util.Log.i("AstroStack", "Discovered Camera ID: $id, facing=$facing (back=0, front=1, external=2), hasRawCapability=$hasRawCapability, largestRawSensorSize=${largest?.width}x${largest?.height}, physicalCameraIds=$physicalIds")
+
+            if (facing != CameraCharacteristics.LENS_FACING_BACK) continue
 
             val isoRange = chars.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE)
             val expRange = chars.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE)
@@ -98,9 +108,9 @@ class RawCameraManager @Inject constructor(
             ) == true
 
             val priority = when {
-                hasRawCapability && largest != null -> 0  // best: explicit RAW + output sizes
-                largest != null                    -> 1  // has RAW sizes but no explicit capability flag
-                else                               -> 2  // fallback: rear camera, no RAW
+                hasRawCapability && largest != null -> 0
+                largest != null                    -> 1
+                else                               -> 2
             }
 
             val hasNightExtension = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -112,20 +122,66 @@ class RawCameraManager @Inject constructor(
                 false
             }
 
-            val cap = CameraCapabilities(
-                cameraId = id,
-                supportsRaw = hasRawCapability || largest != null,
-                minExposureNs = expRange?.lower ?: 1_000_000L,
-                maxExposureNs = expRange?.upper ?: 30_000_000_000L,
-                maxIso = isoRange?.upper ?: 3200,
-                minIso = isoRange?.lower ?: 100,
-                rawSensorWidth = largest?.width ?: 0,
-                rawSensorHeight = largest?.height ?: 0,
-                hasOis = hasOis,
-                characteristics = chars,
-                supportsNightExtension = hasNightExtension,
-            )
-            candidates.add(Candidate(cap, priority))
+            var physicalCandidatesAdded = 0
+            if (physicalIds.isNotEmpty()) {
+                for (pid in physicalIds) {
+                    val pChars = runCatching {
+                        cameraManager.getCameraCharacteristics(pid)
+                    }.onFailure { ex ->
+                        android.util.Log.e("AstroStack", "Failed to get characteristics for physical camera ID $pid", ex)
+                    }.getOrNull() ?: continue
+
+                    val pMap = pChars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+                    val pRawSizes = pMap?.getOutputSizes(ImageFormat.RAW_SENSOR)
+                    val pLargest = pRawSizes?.maxByOrNull { it.width * it.height } ?: largest // fallback to logical largest raw size
+
+                    if (pLargest == null) continue // skip physical camera if no raw configurations at all
+
+                    val pIsoRange = pChars.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE) ?: isoRange
+                    val pExpRange = pChars.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE) ?: expRange
+                    val pOisModes = pChars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION) ?: oisModes
+                    val pHasOis = pOisModes?.contains(CameraCharacteristics.LENS_OPTICAL_STABILIZATION_MODE_ON) == true
+
+                    android.util.Log.i("AstroStack", "Adding Physical Camera Candidate: pid=$pid, logicalId=$id, rawSize=${pLargest.width}x${pLargest.height}")
+
+                    val cap = CameraCapabilities(
+                        cameraId = id,
+                        physicalCameraId = pid,
+                        supportsRaw = true,
+                        minExposureNs = pExpRange?.lower ?: 1_000_000L,
+                        maxExposureNs = pExpRange?.upper ?: 30_000_000_000L,
+                        maxIso = pIsoRange?.upper ?: 3200,
+                        minIso = pIsoRange?.lower ?: 100,
+                        rawSensorWidth = pLargest.width,
+                        rawSensorHeight = pLargest.height,
+                        hasOis = pHasOis,
+                        characteristics = pChars,
+                        supportsNightExtension = hasNightExtension,
+                    )
+                    candidates.add(Candidate(cap, priority))
+                    physicalCandidatesAdded++
+                }
+            }
+
+            // Fallback: If no raw physical sensors were successfully added, add the logical camera device itself
+            if (physicalCandidatesAdded == 0 && (hasRawCapability || largest != null)) {
+                android.util.Log.i("AstroStack", "Adding Logical Camera Candidate: id=$id, rawSize=${largest?.width}x${largest?.height}")
+                val cap = CameraCapabilities(
+                    cameraId = id,
+                    physicalCameraId = null,
+                    supportsRaw = true,
+                    minExposureNs = expRange?.lower ?: 1_000_000L,
+                    maxExposureNs = expRange?.upper ?: 30_000_000_000L,
+                    maxIso = isoRange?.upper ?: 3200,
+                    minIso = isoRange?.lower ?: 100,
+                    rawSensorWidth = largest?.width ?: 0,
+                    rawSensorHeight = largest?.height ?: 0,
+                    hasOis = hasOis,
+                    characteristics = chars,
+                    supportsNightExtension = hasNightExtension,
+                )
+                candidates.add(Candidate(cap, priority))
+            }
         }
 
         return candidates
@@ -160,6 +216,7 @@ class RawCameraManager @Inject constructor(
 
         openCameraDevice(capabilities.cameraId)
         activeCharacteristics = capabilities.characteristics
+        activePhysicalCameraId = capabilities.physicalCameraId
         createCaptureSession(previewSurface)
     }
 
@@ -200,10 +257,15 @@ class RawCameraManager @Inject constructor(
                 return@suspendCancellableCoroutine
             }
             val rawSurface = rawImageReader!!.surface
-            val outputs = listOf(
-                OutputConfiguration(previewSurface),
-                OutputConfiguration(rawSurface),
-            )
+            val previewConfig = OutputConfiguration(previewSurface)
+            val rawConfig = OutputConfiguration(rawSurface)
+
+            if (activePhysicalCameraId != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                previewConfig.setPhysicalCameraId(activePhysicalCameraId)
+                rawConfig.setPhysicalCameraId(activePhysicalCameraId)
+            }
+
+            val outputs = listOf(previewConfig, rawConfig)
             val sessionConfig = SessionConfiguration(
                 SessionConfiguration.SESSION_REGULAR,
                 outputs,

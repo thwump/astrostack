@@ -83,6 +83,7 @@ val ISO_STEPS = listOf(50, 100, 200, 400, 800, 1600, 3200, 6400, 12800)
 
 data class CameraCapabilities(
     val cameraId: String,
+    val physicalCameraId: String? = null,
     val supportsRaw: Boolean,
     val minExposureNs: Long,
     val maxExposureNs: Long,

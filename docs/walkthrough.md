@@ -147,10 +147,9 @@ This walkthrough outlines all the major enhancements integrated into AstroStack 
 - **Location**: [AndroidManifest.xml](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/AndroidManifest.xml)
 
 ### 24. Multi-Camera Lens Selection Menu
-- Queries all available back-facing cameras dynamically via Camera2 API, filtering for raw-capable sensors.
-- Displays a **Camera Lens Selector** row inside the settings panel containing `FilterChip` triggers.
-- Automatically calculates and labels each lens with its user-friendly 35mm equivalent focal length (e.g. `Main (24mm eq.)`, `Ultrawide (13mm eq.)`, `Telephoto (110mm eq.)`).
-- Supports hot-reloading: tapping a lens closes the active camera device, updates settings, and recreates the capture session on the new camera device.
+- **Physical Sensor Autodiscovery:** Queries logical camera devices and parses their nested `physicalCameraIds` (Android 9+) to discover physical rear sensors (Wide, Ultrawide, Telephoto) that are otherwise hidden from the standard system `cameraIdList`.
+- **Top-Level UI Promotion:** Positioned the **Camera Lens Selection** chips directly below the focus/exposure controls at the top level of the settings panel, making it always visible when the camera is open and capture is idle.
+- **Physical Stream Binding:** Uniquely matches configurations using `physicalCameraId ?: cameraId` and configures the active Camera2 session targets using `OutputConfiguration.setPhysicalCameraId` to stream raw frames from the selected lens.
 - **Location**: [RawCameraManager.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/camera/RawCameraManager.kt), [CaptureController.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/camera/CaptureController.kt), [CameraViewModel.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/viewmodel/CameraViewModel.kt), and [CameraScreen.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/ui/CameraScreen.kt)
 
 ---
@@ -160,7 +159,7 @@ This walkthrough outlines all the major enhancements integrated into AstroStack 
 All modules compiled cleanly under Gradle with all unit tests passing.
 
 ```
-BUILD SUCCESSFUL in 10s
+BUILD SUCCESSFUL in 11s
 63 actionable tasks: 22 executed, 41 up-to-date
 ```
 
@@ -173,7 +172,8 @@ BUILD SUCCESSFUL in 10s
 6. **Theme Switcher**: Tap the ☀️ emoji in the top bar. Verify the app switches from the red night-vision mode to standard Material 3 dark/daytime colors (with white text and standard styling). Tap the 🔴 emoji to return to red night-vision.
 7. **Orientation Rotation**: Rotate the phone to landscape mode. Verify the camera preview and settings overlay rotate gracefully.
 8. **Focus Controls Padding**: Check that the manual focus controls (`Infinity Focus 🌌` and `Auto Focus 🔍`) are drawn fully below the system status bar (and below the top bar) in both portrait and landscape orientation, and are fully touch-responsive.
-9. **Camera Lens Selector**: Open the Stacking Settings panel. If your phone has multiple rear cameras (like the Pixel 9 Pro), verify the **Camera Lens Selector** row is shown. Tap `Ultrawide` or `Telephoto` and verify that the preview hot-reloads and the NPF exposure limits update automatically.
+9. **Camera Lens Selection**: Open the settings panel. If your phone has multiple rear cameras (like the Pixel 9 Pro), verify the **Camera Lens Selection** row is shown. Tap `Ultrawide` or `Telephoto` and verify that the preview hot-reloads and the NPF exposure limits update automatically.
+
 
 
 
