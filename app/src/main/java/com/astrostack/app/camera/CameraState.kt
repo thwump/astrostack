@@ -98,6 +98,7 @@ sealed interface CaptureSessionState {
     ) : CaptureSessionState
     data class Done(val sessionId: Long, val frameCount: Int) : CaptureSessionState
     data class Error(val message: String, val cause: Throwable? = null) : CaptureSessionState
+    data class CalibratingDark(val framesCaptured: Int, val totalFrames: Int) : CaptureSessionState
 }
 
 // ─── Live preview state ───────────────────────────────────────────────────────

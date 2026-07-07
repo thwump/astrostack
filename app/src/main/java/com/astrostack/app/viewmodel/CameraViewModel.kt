@@ -48,6 +48,8 @@ class CameraViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(CameraUiState())
     val uiState: StateFlow<CameraUiState> = _uiState.asStateFlow()
 
+    val hasMasterDark: StateFlow<Boolean> = captureController.hasMasterDark
+
     init {
         // Mirror controller states into UI state
         viewModelScope.launch {
@@ -129,6 +131,26 @@ class CameraViewModel @Inject constructor(
 
     fun setDriftHandling(drift: DriftHandling) {
         _uiState.update { it.copy(driftHandling = drift) }
+    }
+
+    // ─── Calibration ──────────────────────────────────────────────────────────
+
+    fun startDarkCalibration() {
+        val state = _uiState.value
+        val settings = CaptureSettings(
+            exposureTimeNs = state.exposureTimeNs,
+            iso = state.iso,
+            saveAllPhotos = false,
+            stackPhotos = false,
+            starThreshold = state.starThreshold,
+            minStarCount = state.minStarCount,
+            driftHandling = state.driftHandling
+        )
+        captureController.startDarkCalibration(settings)
+    }
+
+    fun clearMasterDark() {
+        captureController.clearMasterDark()
     }
 
     // ─── Capture ──────────────────────────────────────────────────────────────

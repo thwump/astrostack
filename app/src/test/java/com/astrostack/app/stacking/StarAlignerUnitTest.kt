@@ -111,4 +111,39 @@ class StarAlignerUnitTest {
         val quality = aligner.alignmentQuality(reference, target)
         assertTrue("Quality ($quality) should be < 1.0", quality < 1.0f)
     }
+
+    @Test fun detects_rigid_translation_and_rotation() {
+        val width = 1000
+        val height = 1000
+        val cx = width / 2f
+        val cy = height / 2f
+        
+        val reference = listOf(
+            Star(400f, 400f, 200f),
+            Star(600f, 400f, 200f),
+            Star(500f, 600f, 200f),
+            Star(300f, 500f, 200f)
+        )
+        
+        // Rotate reference around center by 10 degrees (0.1745 rad) and translate by (+15, -10)
+        val angleRad = Math.toRadians(10.0)
+        val cos = Math.cos(angleRad)
+        val sin = Math.sin(angleRad)
+        val tx = 15f
+        val ty = -10f
+        
+        val target = reference.map { ref ->
+            val rx = ref.x - cx
+            val ry = ref.y - cy
+            val rotX = (rx * cos - ry * sin).toFloat()
+            val rotY = (rx * sin + ry * cos).toFloat()
+            Star(rotX + cx + tx, rotY + cy + ty, 200f)
+        }
+        
+        val transform = aligner.estimateRigidTransform(reference, target, width, height)
+        
+        assertEquals(tx, transform.tx, 0.5f)
+        assertEquals(ty, transform.ty, 0.5f)
+        assertEquals(angleRad.toFloat(), transform.angleRad, 0.01f)
+    }
 }

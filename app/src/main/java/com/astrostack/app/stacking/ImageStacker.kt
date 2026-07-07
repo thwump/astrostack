@@ -10,6 +10,8 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.PrintWriter
 import java.io.FileWriter
+import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlin.math.max
 import kotlin.math.min
@@ -20,9 +22,10 @@ import kotlin.math.min
  * Memory strategy:
  *  Images are processed in horizontal strips ([tileRows] rows at a time) so
  *  that peak RAM ≈ N × width × tileRows × 3 channels × 4 bytes (float).
- *  At 12 MP (4032×3024), 8 strips → ~12 MB/strip × 10 frames = ~120 MB peak.
+ *  Saves temporary stacked results without exhausting JVM heap.
  */
 class ImageStacker @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val starAligner: StarAligner,
     private val histogramStretch: HistogramStretch,
 ) {
@@ -48,6 +51,16 @@ class ImageStacker @Inject constructor(
             files.map { decodeBitmap(it, config.subsampleFactor) }
         }
         onProgress(0.1f)
+
+        // Load and apply Master Dark if available
+        val masterDarkFile = File(context.filesDir, "calibration/master_dark_full.png")
+        if (masterDarkFile.exists()) {
+            val darkBmp = BitmapFactory.decodeFile(masterDarkFile.absolutePath)
+            if (darkBmp != null) {
+                bitmaps.forEach { subtractDark(it, darkBmp) }
+                darkBmp.recycle()
+            }
+        }
 
         val parentDir = files[0].parentFile
         var diagWriter: PrintWriter? = null
@@ -83,27 +96,28 @@ class ImageStacker @Inject constructor(
         }
 
         val validBitmaps = mutableListOf<Bitmap>()
-        val offsets = mutableListOf<StarAligner.Offset>()
+        val offsets = mutableListOf<StarAligner.RigidTransform>()
         
         validBitmaps.add(bitmaps[0])
-        offsets.add(StarAligner.Offset(0f, 0f))
+        offsets.add(StarAligner.RigidTransform(0f, 0f, 0f))
 
         bitmaps.drop(1).forEachIndexed { idx, bmp ->
             val stars = starAligner.detectStars(bmp, starThreshold = config.starThreshold, maxStars = 100)
             if (stars.size >= config.minStarCount) {
-                val offset = if (config.alignFrames) {
-                    starAligner.computeTranslation(refStars, stars)
+                val transform = if (config.alignFrames) {
+                    starAligner.estimateRigidTransform(refStars, stars, width, height)
                 } else {
-                    StarAligner.Offset(0f, 0f)
+                    StarAligner.RigidTransform(0f, 0f, 0f)
                 }
-                val qual = starAligner.alignmentQuality(refStars, stars)
-                val msg = "Frame ${idx + 2}: Detected ${stars.size} stars. Alignment offset = (${offset.x}, ${offset.y}), Match Quality = ${(qual * 100).toInt()}%."
+                val qual = starAligner.rigidAlignmentQuality(refStars, stars, width, height)
+                val angleDeg = Math.toDegrees(transform.angleRad.toDouble()).toFloat()
+                val msg = "Frame ${idx + 2}: Detected ${stars.size} stars. Alignment offset = (${transform.tx}, ${transform.ty}), Rotation = ${"%.2f".format(angleDeg)}°, Match Quality = ${(qual * 100).toInt()}%."
                 android.util.Log.d("AstroStack", msg)
                 diagWriter?.println(msg)
                 diagWriter?.flush()
                 
                 validBitmaps.add(bmp)
-                offsets.add(offset)
+                offsets.add(transform)
             } else {
                 val msg = "Frame ${idx + 2}: REJECTED. Star count ${stars.size} < minimum ${config.minStarCount}."
                 android.util.Log.w("AstroStack", msg)
@@ -133,20 +147,27 @@ class ImageStacker @Inject constructor(
         var cropRect: android.graphics.Rect? = null
 
         if (config.driftHandling == DriftHandling.MOSAIC && config.alignFrames) {
-            val minX = offsets.minOf { it.x }
-            val maxX = offsets.maxOf { it.x }
-            val minY = offsets.minOf { it.y }
-            val maxY = offsets.maxOf { it.y }
+            val minX = offsets.minOf { it.tx }
+            val maxX = offsets.maxOf { it.tx }
+            val minY = offsets.minOf { it.ty }
+            val maxY = offsets.maxOf { it.ty }
 
             finalWidth = (maxX - minX).toInt() + width
             finalHeight = (maxY - minY).toInt() + height
 
             validBitmaps.forEachIndexed { i, bmp ->
-                val dx = offsets[i].x - minX
-                val dy = offsets[i].y - minY
+                val dx = offsets[i].tx - minX
+                val dy = offsets[i].ty - minY
                 val dst = Bitmap.createBitmap(finalWidth, finalHeight, Bitmap.Config.ARGB_8888)
                 val canvas = Canvas(dst)
-                val matrix = Matrix().also { it.setTranslate(dx, dy) }
+                val matrix = Matrix().also {
+                    val cx = width / 2f
+                    val cy = height / 2f
+                    it.postTranslate(-cx, -cy)
+                    val angleDeg = Math.toDegrees(offsets[i].angleRad.toDouble()).toFloat()
+                    it.postRotate(angleDeg)
+                    it.postTranslate(cx + dx, cy + dy)
+                }
                 canvas.drawBitmap(bmp, matrix, Paint(Paint.FILTER_BITMAP_FLAG))
                 aligned.add(dst)
             }
@@ -155,19 +176,19 @@ class ImageStacker @Inject constructor(
             finalHeight = height
             
             validBitmaps.forEachIndexed { i, bmp ->
-                val offset = offsets[i]
-                if (offset.x != 0f || offset.y != 0f) {
-                    aligned.add(applyTranslation(bmp, offset.x, offset.y))
+                val transform = offsets[i]
+                if (transform.tx != 0f || transform.ty != 0f || transform.angleRad != 0f) {
+                    aligned.add(applyRigidTransform(bmp, transform))
                 } else {
                     aligned.add(bmp)
                 }
             }
 
             if (config.driftHandling == DriftHandling.CROP && config.alignFrames) {
-                val left = offsets.maxOf { it.x }.coerceAtLeast(0f).toInt()
-                val right = (offsets.minOf { it.x } + width).coerceAtMost(width.toFloat()).toInt()
-                val top = offsets.maxOf { it.y }.coerceAtLeast(0f).toInt()
-                val bottom = (offsets.minOf { it.y } + height).coerceAtMost(height.toFloat()).toInt()
+                val left = offsets.maxOf { it.tx }.coerceAtLeast(0f).toInt()
+                val right = (offsets.minOf { it.tx } + width).coerceAtMost(width.toFloat()).toInt()
+                val top = offsets.maxOf { it.ty }.coerceAtLeast(0f).toInt()
+                val bottom = (offsets.minOf { it.ty } + height).coerceAtMost(height.toFloat()).toInt()
 
                 if (right > left && bottom > top) {
                     cropRect = android.graphics.Rect(left, top, right, bottom)
@@ -233,14 +254,51 @@ class ImageStacker @Inject constructor(
         stretched
     }
 
-    // ─── Alignment ────────────────────────────────────────────────────────────
-
-    private fun applyTranslation(src: Bitmap, dx: Float, dy: Float): Bitmap {
+    private fun applyRigidTransform(src: Bitmap, transform: StarAligner.RigidTransform): Bitmap {
         val dst = Bitmap.createBitmap(src.width, src.height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(dst)
-        val matrix = Matrix().also { it.setTranslate(dx, dy) }
+        val matrix = Matrix().also {
+            val cx = src.width / 2f
+            val cy = src.height / 2f
+            it.postTranslate(-cx, -cy)
+            val angleDeg = Math.toDegrees(transform.angleRad.toDouble()).toFloat()
+            it.postRotate(angleDeg)
+            it.postTranslate(cx + transform.tx, cy + transform.ty)
+        }
         canvas.drawBitmap(src, matrix, Paint(Paint.FILTER_BITMAP_FLAG))
         return dst
+    }
+
+    private fun subtractDark(src: Bitmap, dark: Bitmap) {
+        val width = src.width
+        val height = src.height
+        if (dark.width != width || dark.height != height) return
+        
+        val size = width * height
+        val srcPixels = IntArray(size)
+        val darkPixels = IntArray(size)
+        src.getPixels(srcPixels, 0, width, 0, 0, width, height)
+        dark.getPixels(darkPixels, 0, width, 0, 0, width, height)
+        
+        for (i in 0 until size) {
+            val sp = srcPixels[i]
+            val dp = darkPixels[i]
+            
+            val sr = (sp shr 16) and 0xFF
+            val sg = (sp shr 8) and 0xFF
+            val sb = sp and 0xFF
+            
+            val dr = (dp shr 16) and 0xFF
+            val dg = (dp shr 8) and 0xFF
+            val db = dp and 0xFF
+            
+            val r = (sr - dr).coerceAtLeast(0)
+            val g = (sg - dg).coerceAtLeast(0)
+            val b = (sb - db).coerceAtLeast(0)
+            
+            srcPixels[i] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
+        }
+        src.setPixels(srcPixels, 0, width, 0, 0, width, height)
     }
 
     // ─── Strip stacking ───────────────────────────────────────────────────────

@@ -317,10 +317,146 @@ fun CameraScreen(
 
                 Spacer(modifier = Modifier.height(4.dp))
 
+                // Calibration Section
+                val hasMasterDark by viewModel.hasMasterDark.collectAsState()
+                var showDarkCalibrationWizard by remember { mutableStateOf(false) }
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                        .background(Color.White.copy(alpha = 0.02f), shape = RoundedCornerShape(8.dp))
+                        .padding(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("Dark Frame Calibration", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .background(
+                                            color = if (hasMasterDark) Color.Green else Color.Gray,
+                                            shape = CircleShape
+                                        )
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = if (hasMasterDark) "Master Dark Active" else "No Dark Reference Profile",
+                                    color = Color.Gray,
+                                    fontSize = 9.sp
+                                )
+                            }
+                        }
+                        
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (hasMasterDark) {
+                                TextButton(
+                                    onClick = viewModel::clearMasterDark,
+                                    contentPadding = PaddingValues(0.dp),
+                                    modifier = Modifier.height(24.dp)
+                                ) {
+                                    Text("Clear", color = MaterialTheme.colorScheme.primary, fontSize = 10.sp)
+                                }
+                            }
+                            Button(
+                                onClick = { showDarkCalibrationWizard = true },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                    contentColor = MaterialTheme.colorScheme.primary
+                                ),
+                                shape = RoundedCornerShape(4.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                modifier = Modifier.height(24.dp)
+                            ) {
+                                Text("Calibrate", fontSize = 10.sp)
+                            }
+                        }
+                    }
+                }
+
+                if (showDarkCalibrationWizard) {
+                    AlertDialog(
+                        onDismissRequest = { showDarkCalibrationWizard = false },
+                        title = { Text("Capture Master Dark Reference", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold) },
+                        text = {
+                            Text(
+                                text = "To isolate and subtract thermal sensor noise and hot pixels, please cover your phone camera lens COMPLETELY (or place it face-down on a dark surface) and tap Start. The app will capture 5 frames to construct the calibration profile.",
+                                color = Color.LightGray,
+                                fontSize = 12.sp
+                            )
+                        },
+                        confirmButton = {
+                            Button(
+                                onClick = {
+                                    showDarkCalibrationWizard = false
+                                    viewModel.startDarkCalibration()
+                                }
+                            ) {
+                                Text("Start", fontSize = 12.sp)
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showDarkCalibrationWizard = false }) {
+                                Text("Cancel", color = Color.Gray, fontSize = 12.sp)
+                            }
+                        },
+                        containerColor = Color(0xFF1E1E1E)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
                 // Capture / cancel / stop controls
                 when (val state = uiState.sessionState) {
                     is CaptureSessionState.Idle ->
                         CaptureButton(onClick = viewModel::startCapture)
+
+                    is CaptureSessionState.CalibratingDark -> {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                        ) {
+                            Text(
+                                text = "Calibrating Master Dark",
+                                color = MaterialTheme.colorScheme.primary,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Keep lens covered completely!",
+                                color = Color.Gray,
+                                fontSize = 10.sp
+                            )
+                            LinearProgressIndicator(
+                                progress = { state.framesCaptured.toFloat() / state.totalFrames.toFloat() },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(4.dp),
+                                color = MaterialTheme.colorScheme.primary,
+                                trackColor = Color.White.copy(alpha = 0.1f)
+                            )
+                            Text(
+                                text = "Captured ${state.framesCaptured} of ${state.totalFrames} frames",
+                                color = Color.White,
+                                fontSize = 11.sp
+                            )
+                            TextButton(onClick = viewModel::resetSessionState) {
+                                Text("Cancel Calibration", color = Color.Gray, fontSize = 11.sp)
+                            }
+                        }
+                    }
 
                     is CaptureSessionState.Capturing -> {
                         Column(

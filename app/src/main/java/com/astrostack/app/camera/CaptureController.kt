@@ -48,6 +48,22 @@ class CaptureController @Inject constructor(
     private val _sessionState = MutableStateFlow<CaptureSessionState>(CaptureSessionState.Idle)
     val sessionState: StateFlow<CaptureSessionState> = _sessionState.asStateFlow()
 
+    private val _hasMasterDark = MutableStateFlow(false)
+    val hasMasterDark: StateFlow<Boolean> = _hasMasterDark.asStateFlow()
+
+    init {
+        val masterDarkFile = File(context.filesDir, "calibration/master_dark_full.png")
+        _hasMasterDark.value = masterDarkFile.exists()
+    }
+
+    fun clearMasterDark() {
+        val dir = File(context.filesDir, "calibration")
+        if (dir.exists()) {
+            dir.deleteRecursively()
+        }
+        _hasMasterDark.value = false
+    }
+
     private val _previewState = MutableStateFlow<PreviewState>(PreviewState.Loading)
     val previewState: StateFlow<PreviewState> = _previewState.asStateFlow()
 
@@ -201,6 +217,18 @@ class CaptureController @Inject constructor(
                                 }
                                 val bmp = BitmapFactory.decodeFile(outputFile.absolutePath, opts) ?: return@withContext false
                                 
+                                // Subtract master dark if available
+                                if (_hasMasterDark.value) {
+                                    val previewDarkFile = File(context.filesDir, "calibration/master_dark_preview.png")
+                                    if (previewDarkFile.exists()) {
+                                        val darkBmp = BitmapFactory.decodeFile(previewDarkFile.absolutePath)
+                                        if (darkBmp != null) {
+                                            subtractDark(bmp, darkBmp)
+                                            darkBmp.recycle()
+                                        }
+                                    }
+                                }
+
                                 val stars = starAligner.detectStars(bmp, starThreshold = settings.starThreshold, maxStars = 50)
                                 if (stars.size < settings.minStarCount) {
                                     bmp.recycle()
@@ -378,6 +406,117 @@ class CaptureController @Inject constructor(
     }
 
     /**
+     * Runs calibration loop capturing 5 frames with lens covered, averages them, and saves Master Dark.
+     */
+    fun startDarkCalibration(settings: CaptureSettings) {
+        if (_sessionState.value !is CaptureSessionState.Idle) return
+
+        captureJob = scope.launch {
+            _sessionState.value = CaptureSessionState.CalibratingDark(0, 5)
+            val calDir = File(context.filesDir, "calibration").also { it.mkdirs() }
+            val tempDir = File(context.filesDir, "calibration_temp").also { it.mkdirs() }
+            val darkBitmaps = mutableListOf<Bitmap>()
+            
+            try {
+                for (i in 1..5) {
+                    if (coroutineContext[kotlinx.coroutines.Job]?.isActive != true) break
+                    
+                    _sessionState.value = CaptureSessionState.CalibratingDark(i - 1, 5)
+                    val tempFile = File(tempDir, "temp_dark_$i.dng")
+                    
+                    // Capture RAW frame with lens covered
+                    withContext(Dispatchers.IO) {
+                        cameraManager.captureAndSaveDng(
+                            settings = settings,
+                            outputFile = tempFile,
+                            onShutterCallback = {}
+                        )
+                    }
+
+                    // Decode DNG frame
+                    val decoded = withContext(Dispatchers.Default) {
+                        val opts = BitmapFactory.Options().apply {
+                            inPreferredConfig = Bitmap.Config.ARGB_8888
+                        }
+                        BitmapFactory.decodeFile(tempFile.absolutePath, opts)
+                    }
+                    if (decoded != null) {
+                        darkBitmaps.add(decoded)
+                    }
+                    
+                    // Cleanup temp file
+                    tempFile.delete()
+                }
+
+                if (darkBitmaps.size >= 3) {
+                    // Average the captured dark bitmaps
+                    _sessionState.value = CaptureSessionState.CalibratingDark(5, 5)
+                    withContext(Dispatchers.Default) {
+                        val width = darkBitmaps[0].width
+                        val height = darkBitmaps[0].height
+                        val size = width * height
+                        
+                        val sumR = FloatArray(size)
+                        val sumG = FloatArray(size)
+                        val sumB = FloatArray(size)
+                        
+                        val pixels = IntArray(size)
+                        for (bmp in darkBitmaps) {
+                            bmp.getPixels(pixels, 0, width, 0, 0, width, height)
+                            for (p in 0 until size) {
+                                val pix = pixels[p]
+                                sumR[p] += ((pix shr 16) and 0xFF).toFloat()
+                                sumG[p] += ((pix shr 8) and 0xFF).toFloat()
+                                sumB[p] += (pix and 0xFF).toFloat()
+                            }
+                        }
+
+                        val avgPixels = IntArray(size)
+                        val count = darkBitmaps.size.toFloat()
+                        for (p in 0 until size) {
+                            val r = (sumR[p] / count + 0.5f).toInt().coerceIn(0, 255)
+                            val g = (sumG[p] / count + 0.5f).toInt().coerceIn(0, 255)
+                            val b = (sumB[p] / count + 0.5f).toInt().coerceIn(0, 255)
+                            avgPixels[p] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
+                        }
+
+                        val masterDarkFull = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                        masterDarkFull.setPixels(avgPixels, 0, width, 0, 0, width, height)
+
+                        // Save full resolution Master Dark as PNG
+                        val fullFile = File(calDir, "master_dark_full.png")
+                        java.io.FileOutputStream(fullFile).use { out ->
+                            masterDarkFull.compress(Bitmap.CompressFormat.PNG, 100, out)
+                        }
+
+                        // Create 1/4 scaled down version for live preview subtraction
+                        val previewWidth = width / 4
+                        val previewHeight = height / 4
+                        val masterDarkPreview = Bitmap.createScaledBitmap(masterDarkFull, previewWidth, previewHeight, true)
+                        val previewFile = File(calDir, "master_dark_preview.png")
+                        java.io.FileOutputStream(previewFile).use { out ->
+                            masterDarkPreview.compress(Bitmap.CompressFormat.PNG, 100, out)
+                        }
+
+                        masterDarkFull.recycle()
+                        masterDarkPreview.recycle()
+                    }
+
+                    _hasMasterDark.value = true
+                    _sessionState.value = CaptureSessionState.Idle
+                } else {
+                    _sessionState.value = CaptureSessionState.Error("Dark calibration failed: failed to decode captured frames.")
+                }
+            } catch (e: Exception) {
+                _sessionState.value = CaptureSessionState.Error("Dark calibration failed: ${e.message}", e)
+            } finally {
+                darkBitmaps.forEach { it.recycle() }
+                tempDir.deleteRecursively()
+            }
+        }
+    }
+
+    /**
      * Stops the continuous capture session and compiles the final high-resolution stacked image.
      */
     fun stopCaptureSession() {
@@ -403,13 +542,11 @@ class CaptureController @Inject constructor(
                                 driftHandling = settings.driftHandling,
                                 minStarCount = settings.minStarCount,
                             )
-                            starAligner.let {
-                                ImageStacker(starAligner, histogramStretch).stack(
-                                    files = files,
-                                    config = config,
-                                    onProgress = {}
-                                )
-                            }
+                            ImageStacker(context, starAligner, histogramStretch).stack(
+                                files = files,
+                                config = config,
+                                onProgress = {}
+                            )
                         }
                     } else {
                         // Fallback to live stretched preview if not enough frames
@@ -470,6 +607,38 @@ class CaptureController @Inject constructor(
         job?.cancel()
         _sessionState.value = CaptureSessionState.Idle
         clearLiveStack()
+    }
+
+    private fun subtractDark(src: Bitmap, dark: Bitmap) {
+        val width = src.width
+        val height = src.height
+        if (dark.width != width || dark.height != height) return
+        
+        val size = width * height
+        val srcPixels = IntArray(size)
+        val darkPixels = IntArray(size)
+        src.getPixels(srcPixels, 0, width, 0, 0, width, height)
+        dark.getPixels(darkPixels, 0, width, 0, 0, width, height)
+        
+        for (i in 0 until size) {
+            val sp = srcPixels[i]
+            val dp = darkPixels[i]
+            
+            val sr = (sp shr 16) and 0xFF
+            val sg = (sp shr 8) and 0xFF
+            val sb = sp and 0xFF
+            
+            val dr = (dp shr 16) and 0xFF
+            val dg = (dp shr 8) and 0xFF
+            val db = dp and 0xFF
+            
+            val r = (sr - dr).coerceAtLeast(0)
+            val g = (sg - dg).coerceAtLeast(0)
+            val b = (sb - db).coerceAtLeast(0)
+            
+            srcPixels[i] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
+        }
+        src.setPixels(srcPixels, 0, width, 0, 0, width, height)
     }
 
     private fun clearLiveStack() {

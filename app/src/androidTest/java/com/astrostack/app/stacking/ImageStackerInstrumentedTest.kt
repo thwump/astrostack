@@ -27,8 +27,8 @@ class ImageStackerInstrumentedTest {
     private lateinit var testDir: File
 
     @Before fun setUp() {
-        stacker = ImageStacker(StarAligner(), HistogramStretch())
         val ctx = InstrumentationRegistry.getInstrumentation().targetContext
+        stacker = ImageStacker(ctx, StarAligner(), HistogramStretch())
         testDir = File(ctx.cacheDir, "stacker_test").also { it.mkdirs() }
     }
 

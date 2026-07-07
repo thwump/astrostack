@@ -27,6 +27,7 @@ class StarAligner @Inject constructor() {
 
     data class Star(val x: Float, val y: Float, val brightness: Float)
     data class Offset(val x: Float, val y: Float)
+    data class RigidTransform(val tx: Float, val ty: Float, val angleRad: Float)
 
     // ─── Detection ────────────────────────────────────────────────────────────
 
@@ -165,6 +166,143 @@ class StarAligner @Inject constructor() {
             } ?: continue
             val d = sqrt((aligned.x - ref.x - offset.x).let { it * it } +
                     (aligned.y - ref.y - offset.y).let { it * it })
+            if (d < searchRadius * 0.3f) matches++
+        }
+        return matches.toFloat() / referenceStars.size
+    }
+
+    // ─── Rigid Transform Estimation (Translation + Rotation) ──────────────────
+
+    /**
+     * Estimate rigid transformation (translation and rotation) mapping [targetStars] to [referenceStars].
+     * Uses closed-form covariance solver over centroids, with RANSAC-like outlier rejection.
+     */
+    fun estimateRigidTransform(
+        referenceStars: List<Star>,
+        targetStars: List<Star>,
+        width: Int,
+        height: Int,
+        searchRadius: Float = 50f,
+    ): RigidTransform {
+        if (referenceStars.isEmpty() || targetStars.isEmpty()) return RigidTransform(0f, 0f, 0f)
+
+        val cx = width / 2f
+        val cy = height / 2f
+
+        // Step 1: Establish initial matches based on proximity (under assumption of small rotation)
+        val matches = mutableListOf<Pair<Star, Star>>()
+        for (ref in referenceStars) {
+            val nearest = targetStars.minByOrNull { t ->
+                val dx = t.x - ref.x; val dy = t.y - ref.y; dx * dx + dy * dy
+            } ?: continue
+            val dist = sqrt((nearest.x - ref.x).let { it * it } + (nearest.y - ref.y).let { it * it })
+            if (dist <= searchRadius) {
+                matches.add(Pair(ref, nearest))
+            }
+        }
+
+        if (matches.size < 3) {
+            // Fall back to pure translation
+            val trans = computeTranslation(referenceStars, targetStars, searchRadius)
+            return RigidTransform(trans.x, trans.y, 0f)
+        }
+
+        // Step 2: Solve rigid transform on raw matches
+        var transform = solveRigid(matches, cx, cy)
+
+        // Step 3: Filter outliers (keep errors < 5px)
+        val inliers = matches.filter { (ref, target) ->
+            val rx = ref.x - cx
+            val ry = ref.y - cy
+            val cos = kotlin.math.cos(transform.angleRad.toDouble()).toFloat()
+            val sin = kotlin.math.sin(transform.angleRad.toDouble()).toFloat()
+
+            val projX = (rx * cos - ry * sin) + cx + transform.tx
+            val projY = (rx * sin + ry * cos) + cy + transform.ty
+
+            val dx = target.x - projX
+            val dy = target.y - projY
+            sqrt(dx * dx + dy * dy) < 5f
+        }
+
+        if (inliers.size >= 3 && inliers.size < matches.size) {
+            // Re-solve on clean set
+            transform = solveRigid(inliers, cx, cy)
+        }
+
+        return transform
+    }
+
+    private fun solveRigid(matches: List<Pair<Star, Star>>, cx: Float, cy: Float): RigidTransform {
+        var refSumX = 0.0
+        var refSumY = 0.0
+        var targetSumX = 0.0
+        var targetSumY = 0.0
+        for ((ref, target) in matches) {
+            refSumX += (ref.x - cx)
+            refSumY += (ref.y - cy)
+            targetSumX += (target.x - cx)
+            targetSumY += (target.y - cy)
+        }
+        val refMeanX = refSumX / matches.size
+        val refMeanY = refSumY / matches.size
+        val targetMeanX = targetSumX / matches.size
+        val targetMeanY = targetSumY / matches.size
+
+        var sxx = 0.0
+        var syy = 0.0
+        var sxy = 0.0
+        var syx = 0.0
+        for ((ref, target) in matches) {
+            val rx = (ref.x - cx) - refMeanX
+            val ry = (ref.y - cy) - refMeanY
+            val tx = (target.x - cx) - targetMeanX
+            val ty = (target.y - cy) - targetMeanY
+            sxx += rx * tx
+            syy += ry * ty
+            sxy += rx * ty
+            syx += ry * tx
+        }
+
+        val numSin = sxy - syx
+        val numCos = sxx + syy
+        val angleRad = kotlin.math.atan2(numSin, numCos).toFloat()
+
+        val cos = kotlin.math.cos(angleRad.toDouble()).toFloat()
+        val sin = kotlin.math.sin(angleRad.toDouble()).toFloat()
+
+        val tx = (targetMeanX - (refMeanX * cos - refMeanY * sin)).toFloat()
+        val ty = (targetMeanY - (refMeanX * sin + refMeanY * cos)).toFloat()
+
+        return RigidTransform(tx, ty, angleRad)
+    }
+
+    /** Quality score [0, 1] using rigid alignment projection. */
+    fun rigidAlignmentQuality(
+        referenceStars: List<Star>,
+        targetStars: List<Star>,
+        width: Int,
+        height: Int,
+        searchRadius: Float = 50f,
+    ): Float {
+        if (referenceStars.isEmpty()) return 0f
+        val transform = estimateRigidTransform(referenceStars, targetStars, width, height, searchRadius)
+        val cx = width / 2f
+        val cy = height / 2f
+        val cos = kotlin.math.cos(transform.angleRad.toDouble()).toFloat()
+        val sin = kotlin.math.sin(transform.angleRad.toDouble()).toFloat()
+
+        var matches = 0
+        for (ref in referenceStars) {
+            val rx = ref.x - cx
+            val ry = ref.y - cy
+            val projX = (rx * cos - ry * sin) + cx + transform.tx
+            val projY = (rx * sin + ry * cos) + cy + transform.ty
+
+            val aligned = targetStars.minByOrNull { t ->
+                val dx = t.x - projX; val dy = t.y - projY; dx * dx + dy * dy
+            } ?: continue
+            val d = sqrt((aligned.x - projX).let { it * it } + (aligned.y - projY).let { it * it })
             if (d < searchRadius * 0.3f) matches++
         }
         return matches.toFloat() / referenceStars.size
