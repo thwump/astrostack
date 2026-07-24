@@ -159,6 +159,12 @@ This walkthrough outlines all the major enhancements integrated into AstroStack 
 - **In-Memory Calibration:** Calibration routines (Dark/Flat) now capture directly to in-memory binned `Bitmap`s, bypassing slow disk write/read loops and successfully creating master calibration PNG files.
 - **Location**: [RawCameraManager.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/camera/RawCameraManager.kt) and [CaptureController.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/camera/CaptureController.kt)
 
+### 26. 32-Bit Floating Point Pipeline & Direct FITS Data Engine
+- **32-Bit Floating Point Precision:** Added `RawFrameData` model and `captureRawFrameData()` in `RawCameraManager` which converts 10-16 bit raw sensor data directly into linear 32-bit floating point arrays (`FloatArray`), avoiding any 8-bit quantization noise or dynamic range truncation during capture, calibration, alignment, and stacking.
+- **Direct 32-Bit FITS Export:** Added `writeRgbFits(os, width, height, floatPixels: FloatArray)` to `FitsWriter.kt`. Stacked results are written directly to FITS files as IEEE 32-bit floating point matrices (`BITPIX = -32`), preserving sub-pixel precision and full dynamic range for scientific desktop software like PixInsight and Siril.
+- **UI Screen Rendering:** Converted 32-bit float arrays to 8-bit ARGB `Bitmap`s only when rendering previews on the device's screen, cleanly separating scientific math from screen UI presentation.
+- **Location**: [FitsWriter.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/stacking/FitsWriter.kt) and [RawCameraManager.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/camera/RawCameraManager.kt)
+
 ---
 
 ## Verification and Compile Checks

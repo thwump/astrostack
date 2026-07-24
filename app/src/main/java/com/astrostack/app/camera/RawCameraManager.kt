@@ -343,11 +343,31 @@ class RawCameraManager @Inject constructor(
      *
      * Suspends until the image has been written to disk.
      */
-    suspend fun captureAndSaveDng(
+data class RawFrameData(
+    val width: Int,
+    val height: Int,
+    val floatPixels: FloatArray,
+) {
+    fun toBitmap(): Bitmap {
+        val pixels = IntArray(width * height)
+        for (i in 0 until width * height) {
+            val r = (floatPixels[i * 3].coerceIn(0f, 1f) * 255f + 0.5f).toInt()
+            val g = (floatPixels[i * 3 + 1].coerceIn(0f, 1f) * 255f + 0.5f).toInt()
+            val b = (floatPixels[i * 3 + 2].coerceIn(0f, 1f) * 255f + 0.5f).toInt()
+            pixels[i] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
+        }
+        val bmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        bmp.setPixels(pixels, 0, width, 0, 0, width, height)
+        return bmp
+    }
+}
+
+    suspend fun captureRawFrameData(
         settings: CaptureSettings,
         outputFile: File?,
         onShutterCallback: () -> Unit = {},
-    ): Bitmap {
+        binningFactor: Int = 2
+    ): RawFrameData {
         val (image, captureResult) = captureRawImage(settings, onShutterCallback)
         try {
             if (outputFile != null) {
@@ -357,10 +377,98 @@ class RawCameraManager @Inject constructor(
             val blackLevelPattern = chars?.get(CameraCharacteristics.SENSOR_BLACK_LEVEL_PATTERN)
             val blackLevel = blackLevelPattern?.getOffsetForIndex(0, 0) ?: 1024
             val whitePoint = chars?.get(CameraCharacteristics.SENSOR_INFO_WHITE_LEVEL) ?: 1023
-            return rawImageToBinnedRgbBitmap(image, blackLevel, whitePoint, binningFactor = 2)
+            return rawImageToBinnedFloatBuffer(image, blackLevel, whitePoint, binningFactor)
         } finally {
             image.close()
         }
+    }
+
+    private fun rawImageToBinnedFloatBuffer(
+        image: Image,
+        blackLevel: Int,
+        whitePoint: Int,
+        binningFactor: Int
+    ): RawFrameData {
+        val width = image.width
+        val height = image.height
+        val plane = image.planes[0]
+        val buffer = plane.buffer
+        val rowStride = plane.rowStride
+        val pixelStride = plane.pixelStride
+
+        val outW = width / binningFactor
+        val outH = height / binningFactor
+        val floatPixels = FloatArray(outW * outH * 3)
+
+        val range = (whitePoint - blackLevel).coerceAtLeast(1)
+
+        val dupBuffer = buffer.duplicate()
+        val bytes = ByteArray(dupBuffer.remaining())
+        dupBuffer.get(bytes)
+
+        for (y in 0 until outH) {
+            val startY = y * binningFactor
+            for (x in 0 until outW) {
+                val startX = x * binningFactor
+
+                var sumR = 0L
+                var sumG = 0L
+                var sumB = 0L
+                var countR = 0
+                var countG = 0
+                var countB = 0
+
+                for (by in 0 until binningFactor) {
+                    val rawY = startY + by
+                    val rowOffset = rawY * rowStride
+                    val isGreenRow = (rawY % 2 == 1)
+
+                    for (bx in 0 until binningFactor) {
+                        val rawX = startX + bx
+                        val offset = rowOffset + rawX * pixelStride
+
+                        if (offset + 1 < bytes.size) {
+                            val rawVal = ((bytes[offset + 1].toInt() and 0xFF) shl 8) or (bytes[offset].toInt() and 0xFF)
+                            val cleanVal = (rawVal - blackLevel).coerceAtLeast(0)
+
+                            val isGreenCol = (rawX % 2 == 1)
+                            if (isGreenRow) {
+                                if (isGreenCol) {
+                                    sumB += cleanVal
+                                    countB++
+                                } else {
+                                    sumG += cleanVal
+                                    countG++
+                                }
+                            } else {
+                                if (isGreenCol) {
+                                    sumG += cleanVal
+                                    countG++
+                                } else {
+                                    sumR += cleanVal
+                                    countR++
+                                }
+                            }
+                        }
+                    }
+                }
+
+                val outIdx = (y * outW + x) * 3
+                floatPixels[outIdx] = if (countR > 0) ((sumR.toFloat() / countR) / range).coerceIn(0f, 1f) else 0f
+                floatPixels[outIdx + 1] = if (countG > 0) ((sumG.toFloat() / countG) / range).coerceIn(0f, 1f) else 0f
+                floatPixels[outIdx + 2] = if (countB > 0) ((sumB.toFloat() / countB) / range).coerceIn(0f, 1f) else 0f
+            }
+        }
+        return RawFrameData(outW, outH, floatPixels)
+    }
+
+    suspend fun captureAndSaveDng(
+        settings: CaptureSettings,
+        outputFile: File?,
+        onShutterCallback: () -> Unit = {},
+    ): Bitmap {
+        val frameData = captureRawFrameData(settings, outputFile, onShutterCallback, binningFactor = 2)
+        return frameData.toBitmap()
     }
 
     private fun rawImageToBinnedRgbBitmap(
