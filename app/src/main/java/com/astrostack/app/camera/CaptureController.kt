@@ -233,8 +233,8 @@ class CaptureController @Inject constructor(
                         currentFilePath = outputFile.absolutePath,
                     )
 
-                    // 1. Capture the DNG frame
-                    withContext(Dispatchers.IO) {
+                    // 1. Capture the DNG frame and obtain binned Bitmap
+                    val rawBmp = withContext(Dispatchers.IO) {
                         cameraManager.captureAndSaveDng(
                             settings = settings,
                             outputFile = outputFile,
@@ -242,15 +242,24 @@ class CaptureController @Inject constructor(
                         )
                     }
 
+                    // Save binned PNG if we need it for offline/single frame
+                    val pngFile = File(outputDir, "frame_%03d.png".format(totalCaptured))
+                    if (settings.saveAllPhotos || !settings.stackPhotos) {
+                        withContext(Dispatchers.IO) {
+                            java.io.FileOutputStream(pngFile).use { out ->
+                                rawBmp.compress(Bitmap.CompressFormat.PNG, 90, out)
+                            }
+                        }
+                    }
+
                     // 2. Perform live stacking/alignment in background thread sequentially to avoid races
                     if (settings.stackPhotos) {
                         val stackSuccess = withContext(Dispatchers.Default) {
                             try {
-                                val opts = BitmapFactory.Options().apply {
-                                    inSampleSize = 4
-                                    inPreferredConfig = Bitmap.Config.ARGB_8888
+                                val bmp = Bitmap.createScaledBitmap(rawBmp, rawBmp.width / 2, rawBmp.height / 2, true)
+                                if (bmp !== rawBmp) {
+                                    rawBmp.recycle()
                                 }
-                                val bmp = BitmapFactory.decodeFile(outputFile.absolutePath, opts) ?: return@withContext false
                                 
                                 // Subtract master dark if available
                                 if (_hasMasterDark.value) {
@@ -441,18 +450,26 @@ class CaptureController @Inject constructor(
                         }
                     }
 
-                    // 3. Save DNG metadata or Delete from disk to preserve space
-                    if (settings.saveAllPhotos) {
+                    if (!settings.stackPhotos) {
+                        rawBmp.recycle()
+                    }
+
+                    // 3. Save DNG/PNG metadata or Delete from disk to preserve space
+                    if (settings.saveAllPhotos || !settings.stackPhotos) {
                         withContext(Dispatchers.IO) {
                             repository.addFrame(
                                 sessionId = sessionId,
-                                filePath = outputFile.absolutePath,
+                                filePath = pngFile.absolutePath,
                                 frameIndex = totalCaptured - 1,
                             )
                         }
+                        if (!settings.saveAllPhotos) {
+                            outputFile.delete()
+                        }
                     } else {
-                        // Delete frame file immediately since we don't save sub-frames
+                        // Delete frame files immediately since we don't save sub-frames
                         outputFile.delete()
+                        if (pngFile.exists()) pngFile.delete()
                     }
 
                     // Push final frame statistics for UI reflection
@@ -496,30 +513,15 @@ class CaptureController @Inject constructor(
                     if (coroutineContext[kotlinx.coroutines.Job]?.isActive != true) break
                     
                     _sessionState.value = CaptureSessionState.CalibratingDark(i - 1, 5)
-                    val tempFile = File(tempDir, "temp_dark_$i.dng")
-                    
-                    // Capture RAW frame with lens covered
-                    withContext(Dispatchers.IO) {
+                    // Capture RAW frame with lens covered and return binned Bitmap directly
+                    val decoded = withContext(Dispatchers.IO) {
                         cameraManager.captureAndSaveDng(
                             settings = settings,
-                            outputFile = tempFile,
+                            outputFile = null as File?,
                             onShutterCallback = {}
                         )
                     }
-
-                    // Decode DNG frame
-                    val decoded = withContext(Dispatchers.Default) {
-                        val opts = BitmapFactory.Options().apply {
-                            inPreferredConfig = Bitmap.Config.ARGB_8888
-                        }
-                        BitmapFactory.decodeFile(tempFile.absolutePath, opts)
-                    }
-                    if (decoded != null) {
-                        darkBitmaps.add(decoded)
-                    }
-                    
-                    // Cleanup temp file
-                    tempFile.delete()
+                    darkBitmaps.add(decoded)
                 }
 
                 if (darkBitmaps.size >= 3) {
@@ -609,29 +611,15 @@ class CaptureController @Inject constructor(
                     if (coroutineContext[kotlinx.coroutines.Job]?.isActive != true) break
 
                     _sessionState.value = CaptureSessionState.CalibratingFlat(i - 1, 10)
-                    val tempFile = File(tempDir, "temp_flat_$i.dng")
-
-                    // Capture RAW frame
-                    withContext(Dispatchers.IO) {
+                    // Capture RAW frame and return binned Bitmap directly
+                    val decoded = withContext(Dispatchers.IO) {
                         cameraManager.captureAndSaveDng(
                             settings = settings,
-                            outputFile = tempFile,
+                            outputFile = null as File?,
                             onShutterCallback = {}
                         )
                     }
-
-                    // Decode DNG frame
-                    val decoded = withContext(Dispatchers.Default) {
-                        val opts = BitmapFactory.Options().apply {
-                            inPreferredConfig = Bitmap.Config.ARGB_8888
-                        }
-                        BitmapFactory.decodeFile(tempFile.absolutePath, opts)
-                    }
-                    if (decoded != null) {
-                        flatBitmaps.add(decoded)
-                    }
-
-                    tempFile.delete()
+                    flatBitmaps.add(decoded)
                 }
 
                 if (flatBitmaps.size >= 5) {

@@ -3,6 +3,7 @@ package com.astrostack.app.camera
 import android.Manifest
 import android.content.Context
 import android.graphics.ImageFormat
+import android.graphics.Bitmap
 import android.hardware.camera2.*
 import android.hardware.camera2.params.OutputConfiguration
 import android.hardware.camera2.params.SessionConfiguration
@@ -344,15 +345,109 @@ class RawCameraManager @Inject constructor(
      */
     suspend fun captureAndSaveDng(
         settings: CaptureSettings,
-        outputFile: File,
+        outputFile: File?,
         onShutterCallback: () -> Unit = {},
-    ) {
+    ): Bitmap {
         val (image, captureResult) = captureRawImage(settings, onShutterCallback)
         try {
-            saveImageAsDng(image, captureResult, outputFile)
+            if (outputFile != null) {
+                saveImageAsDng(image, captureResult, outputFile)
+            }
+            val chars = activeCharacteristics
+            val blackLevelPattern = chars?.get(CameraCharacteristics.SENSOR_BLACK_LEVEL_PATTERN)
+            val blackLevel = blackLevelPattern?.getOffsetForIndex(0, 0) ?: 1024
+            val whitePoint = chars?.get(CameraCharacteristics.SENSOR_INFO_WHITE_LEVEL) ?: 1023
+            return rawImageToBinnedRgbBitmap(image, blackLevel, whitePoint, binningFactor = 2)
         } finally {
             image.close()
         }
+    }
+
+    private fun rawImageToBinnedRgbBitmap(
+        image: Image,
+        blackLevel: Int,
+        whitePoint: Int,
+        binningFactor: Int
+    ): Bitmap {
+        val width = image.width
+        val height = image.height
+        val plane = image.planes[0]
+        val buffer = plane.buffer
+        val rowStride = plane.rowStride
+        val pixelStride = plane.pixelStride
+
+        val outW = width / binningFactor
+        val outH = height / binningFactor
+        val bmp = Bitmap.createBitmap(outW, outH, Bitmap.Config.ARGB_8888)
+        val pixels = IntArray(outW * outH)
+
+        val range = (whitePoint - blackLevel).coerceAtLeast(1)
+
+        val dupBuffer = buffer.duplicate()
+        val bytes = ByteArray(dupBuffer.remaining())
+        dupBuffer.get(bytes)
+
+        // Bayer RGGB parsing with dynamic binningFactor blocks
+        for (y in 0 until outH) {
+            val startY = y * binningFactor
+            for (x in 0 until outW) {
+                val startX = x * binningFactor
+
+                var sumR = 0L
+                var sumG = 0L
+                var sumB = 0L
+                var countR = 0
+                var countG = 0
+                var countB = 0
+
+                for (by in 0 until binningFactor) {
+                    val rawY = startY + by
+                    val rowOffset = rawY * rowStride
+                    val isGreenRow = (rawY % 2 == 1)
+
+                    for (bx in 0 until binningFactor) {
+                        val rawX = startX + bx
+                        val offset = rowOffset + rawX * pixelStride
+
+                        if (offset + 1 < bytes.size) {
+                            val rawVal = ((bytes[offset + 1].toInt() and 0xFF) shl 8) or (bytes[offset].toInt() and 0xFF)
+                            val cleanVal = (rawVal - blackLevel).coerceAtLeast(0)
+
+                            val isGreenCol = (rawX % 2 == 1)
+                            if (isGreenRow) {
+                                if (isGreenCol) {
+                                    sumB += cleanVal
+                                    countB++
+                                } else {
+                                    sumG += cleanVal
+                                    countG++
+                                }
+                            } else {
+                                if (isGreenCol) {
+                                    sumG += cleanVal
+                                    countG++
+                                } else {
+                                    sumR += cleanVal
+                                    countR++
+                                }
+                            }
+                        }
+                    }
+                }
+
+                val r = if (countR > 0) ((sumR.toFloat() / countR) / range).coerceIn(0f, 1f) else 0f
+                val g = if (countG > 0) ((sumG.toFloat() / countG) / range).coerceIn(0f, 1f) else 0f
+                val b = if (countB > 0) ((sumB.toFloat() / countB) / range).coerceIn(0f, 1f) else 0f
+
+                val rByte = (r * 255f).toInt()
+                val gByte = (g * 255f).toInt()
+                val bByte = (b * 255f).toInt()
+
+                pixels[y * outW + x] = (0xFF shl 24) or (rByte shl 16) or (gByte shl 8) or bByte
+            }
+        }
+        bmp.setPixels(pixels, 0, outW, 0, 0, outW, outH)
+        return bmp
     }
 
     /** Holds the Image and its matching TotalCaptureResult from onCaptureCompleted. */

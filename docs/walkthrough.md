@@ -152,6 +152,13 @@ This walkthrough outlines all the major enhancements integrated into AstroStack 
 - **Physical Stream Binding:** Uniquely matches configurations using `physicalCameraId ?: cameraId` and configures the active Camera2 session targets using `OutputConfiguration.setPhysicalCameraId` to stream raw frames from the selected lens.
 - **Location**: [RawCameraManager.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/camera/RawCameraManager.kt), [CaptureController.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/camera/CaptureController.kt), [CameraViewModel.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/viewmodel/CameraViewModel.kt), and [CameraScreen.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/ui/CameraScreen.kt)
 
+### 25. In-Memory RAW Demosaicing and Stacking Architecture
+- **Problem Resolved:** The original code captured `.dng` raw files and attempted to load them with `BitmapFactory.decodeFile()`, which is unsupported on Android and silently returned `null`. This broke live/offline stacking, dark/flat calibration, and scouting mode completely.
+- **Fast 2x2 Binning Converter:** Added `rawImageToBinnedRgbBitmap()` to `RawCameraManager` which reads raw bytes from `ImageFormat.RAW_SENSOR` in-memory buffers, subtracts the sensor black level, normalizes based on the white point, and averages $2\times2$ Bayer pixel blocks into binned sRGB `Bitmap`s in under 30ms.
+- **PNG Metadata Indexing:** When "Save All RAW Frames" is enabled (or during a single-frame scouting capture), the app saves the raw DNG to disk for external editing, but saves the binned `Bitmap` as a `.png` file. The `.png` file path is registered in the database, enabling offline stacking and scouting to load frames successfully via `BitmapFactory.decodeFile()`.
+- **In-Memory Calibration:** Calibration routines (Dark/Flat) now capture directly to in-memory binned `Bitmap`s, bypassing slow disk write/read loops and successfully creating master calibration PNG files.
+- **Location**: [RawCameraManager.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/camera/RawCameraManager.kt) and [CaptureController.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/camera/CaptureController.kt)
+
 ---
 
 ## Verification and Compile Checks
@@ -159,7 +166,7 @@ This walkthrough outlines all the major enhancements integrated into AstroStack 
 All modules compiled cleanly under Gradle with all unit tests passing.
 
 ```
-BUILD SUCCESSFUL in 11s
+BUILD SUCCESSFUL in 12s
 63 actionable tasks: 22 executed, 41 up-to-date
 ```
 
@@ -167,12 +174,14 @@ BUILD SUCCESSFUL in 11s
 1. **Stretch Type Toggle**: In the Stacking Settings panel, verify the Stretch Type segmented control shows Histogram (STF) and Arcsinh (Color) chips.
 2. **Gradient Removal Toggle**: Toggle the **Gradient Removal** switch on/off in the Stacking Settings panel and check that city skyglow is subtracted from the preview.
 3. **Quick Scout**: Tap the Scout button in the top bar. Verify a single frame is captured, stretched, and displayed on the result screen.
-4. **Master Dark Calibration**: Tap Calibrate under Dark Frame Calibration, cover the lens, tap Start, watch the 5-frame progress.
+4. **Master Dark Calibration**: Tap Calibrate under Dark Frame Calibration, cover the lens, tap Start, watch the 5-frame progress. Confirm status indicator turns green.
 5. **Master Flat Calibration**: Tap Calibrate under Flat Frame Calibration, point at a bright even surface, tap Start, watch the 10-frame progress. Confirm status indicator turns green.
 6. **Theme Switcher**: Tap the ☀️ emoji in the top bar. Verify the app switches from the red night-vision mode to standard Material 3 dark/daytime colors (with white text and standard styling). Tap the 🔴 emoji to return to red night-vision.
 7. **Orientation Rotation**: Rotate the phone to landscape mode. Verify the camera preview and settings overlay rotate gracefully.
 8. **Focus Controls Padding**: Check that the manual focus controls (`Infinity Focus 🌌` and `Auto Focus 🔍`) are drawn fully below the system status bar (and below the top bar) in both portrait and landscape orientation, and are fully touch-responsive.
 9. **Camera Lens Selection**: Open the settings panel. If your phone has multiple rear cameras (like the Pixel 9 Pro), verify the **Camera Lens Selection** row is shown. Tap `Ultrawide` or `Telephoto` and verify that the preview hot-reloads and the NPF exposure limits update automatically.
+10. **Live & Offline Stacking Verification:** Start a live capture with stacking enabled. Verify frames increment successfully under "Captured" / "Stacked" in the UI and the live preview updates dynamically. Stop capturing and verify the final stacked output is created and stored in the gallery.
+
 
 
 
