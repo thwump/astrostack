@@ -41,8 +41,8 @@ class StarAligner @Inject constructor() {
      */
     suspend fun detectStars(
         bitmap: Bitmap,
-        starThreshold: Int = 180,
-        minDistance: Int = 10,
+        starThreshold: Int = -1,
+        minDistance: Int = 8,
         maxStars: Int = 100,
     ): List<Star> = withContext(Dispatchers.Default) {
         val width = bitmap.width
@@ -56,18 +56,26 @@ class StarAligner @Inject constructor() {
             val r = (pixels[i] shr 16) and 0xFF
             val g = (pixels[i] shr 8) and 0xFF
             val b = pixels[i] and 0xFF
-            // Rec.709 luma
             luma[i] = ((0.2126 * r + 0.7152 * g + 0.0722 * b).toInt().coerceIn(0, 255)).toByte()
+        }
+
+        // Adaptive thresholding: pick 98.5th percentile of luma if threshold not specified
+        val actualThreshold = if (starThreshold < 0) {
+            val sortedLuma = luma.map { it.toInt() and 0xFF }.sorted()
+            val p98 = sortedLuma[(sortedLuma.size * 0.985).toInt().coerceIn(0, sortedLuma.size - 1)]
+            p98.coerceAtLeast(40)
+        } else {
+            starThreshold
         }
 
         // Find local maxima
         val candidates = mutableListOf<Star>()
-        val halfWin = 5
+        val halfWin = 3
 
         for (y in halfWin until height - halfWin) {
             for (x in halfWin until width - halfWin) {
                 val v = luma[y * width + x].toInt() and 0xFF
-                if (v < starThreshold) continue
+                if (v < actualThreshold) continue
                 if (!isLocalMax(luma, x, y, width, halfWin)) continue
 
                 // Weighted centroid over 5×5 window
@@ -86,7 +94,7 @@ class StarAligner @Inject constructor() {
             }
         }
 
-        // Non-maximum suppression (remove stars too close together)
+        // Non-maximum suppression
         val filtered = suppress(candidates, minDistance.toFloat())
         filtered.sortedByDescending { it.brightness }.take(maxStars)
     }
@@ -117,39 +125,62 @@ class StarAligner @Inject constructor() {
     // ─── Alignment ────────────────────────────────────────────────────────────
 
     /**
-     * Compute the translational offset that maps [targetStars] onto [referenceStars].
-     *
-     * Strategy: for each reference star, find the nearest target star within a
-     * search radius. Collect (dx, dy) pairs and return the median — this is
-     * robust against a few mismatched pairs.
-     *
-     * Returns [Offset] (0, 0) if fewer than 3 pairs are found.
+     * Compute the translational offset mapping [targetStars] onto [referenceStars]
+     * using a 2D star-pair displacement histogram matching algorithm.
      */
     fun computeTranslation(
         referenceStars: List<Star>,
         targetStars: List<Star>,
-        searchRadius: Float = 50f,
+        searchRadius: Float = 250f,
     ): Offset {
         if (referenceStars.isEmpty() || targetStars.isEmpty()) return Offset(0f, 0f)
 
+        // 1. Calculate displacement vectors for all star pair combinations
         val dxList = mutableListOf<Float>()
         val dyList = mutableListOf<Float>()
 
         for (ref in referenceStars) {
-            val nearest = targetStars.minByOrNull { t ->
-                val dx = t.x - ref.x; val dy = t.y - ref.y; dx * dx + dy * dy
-            } ?: continue
-
-            val dist = sqrt((nearest.x - ref.x).let { it * it } + (nearest.y - ref.y).let { it * it })
-            if (dist <= searchRadius) {
-                dxList.add(nearest.x - ref.x)
-                dyList.add(nearest.y - ref.y)
+            for (t in targetStars) {
+                val dx = t.x - ref.x
+                val dy = t.y - ref.y
+                if (abs(dx) <= searchRadius && abs(dy) <= searchRadius) {
+                    dxList.add(dx)
+                    dyList.add(dy)
+                }
             }
         }
 
-        if (dxList.size < 3) return Offset(0f, 0f)
+        if (dxList.isEmpty()) return Offset(0f, 0f)
 
-        return Offset(median(dxList), median(dyList))
+        // 2. 2D displacement histogram binning (4px bin size)
+        val binSize = 4f
+        val modeMap = mutableMapOf<Pair<Int, Int>, Int>()
+        for (i in dxList.indices) {
+            val binX = (dxList[i] / binSize).toInt()
+            val binY = (dyList[i] / binSize).toInt()
+            val key = Pair(binX, binY)
+            modeMap[key] = (modeMap[key] ?: 0) + 1
+        }
+
+        val bestBin = modeMap.maxByOrNull { it.value }?.key ?: return Offset(0f, 0f)
+        val targetBinX = bestBin.first
+        val targetBinY = bestBin.second
+
+        // 3. Take robust median of all displacement inliers within winning bin
+        val inlierDx = mutableListOf<Float>()
+        val inlierDy = mutableListOf<Float>()
+        for (i in dxList.indices) {
+            val binX = (dxList[i] / binSize).toInt()
+            val binY = (dyList[i] / binSize).toInt()
+            if (binX == targetBinX && binY == targetBinY) {
+                inlierDx.add(dxList[i])
+                inlierDy.add(dyList[i])
+            }
+        }
+
+        if (inlierDx.size < 2) return Offset(0f, 0f)
+
+        return Offset(median(inlierDx), median(inlierDy))
     }
 
     /** Quality score [0, 1]: ratio of matched pairs to reference stars. */

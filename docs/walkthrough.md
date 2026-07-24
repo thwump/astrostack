@@ -165,6 +165,11 @@ This walkthrough outlines all the major enhancements integrated into AstroStack 
 - **UI Screen Rendering:** Converted 32-bit float arrays to 8-bit ARGB `Bitmap`s only when rendering previews on the device's screen, cleanly separating scientific math from screen UI presentation.
 - **Location**: [FitsWriter.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/stacking/FitsWriter.kt) and [RawCameraManager.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/camera/RawCameraManager.kt)
 
+### 27. Adaptive 2D Star Pair Displacement Histogram Matching Engine
+- **Adaptive Percentile Thresholding:** Replaced the static hardcoded luma threshold (`180`) in `StarAligner.kt` with an adaptive 98.5th percentile threshold calculation. This allows star detection to reliably extract stars regardless of light pollution, exposure time, or sky brightness.
+- **2D Star-Pair Displacement Histogram Matching:** Replaced nearest-neighbor greedy matching with a global 2D displacement vector histogram matching algorithm. By computing displacement vectors $(t.x - ref.x, t.y - ref.y)$ across all star pairs and finding the dominant mode, the aligner uniquely identifies true star displacement (e.g. 65 matched pairs) even under large drift distances or sky motion.
+- **Location**: [StarAligner.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/stacking/StarAligner.kt)
+
 ---
 
 ## Verification and Compile Checks
