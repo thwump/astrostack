@@ -29,6 +29,8 @@ data class CaptureSettings(
     val driftHandling: DriftHandling = DriftHandling.CROP,
     val stretchType: StretchType = StretchType.HISTOGRAM,
     val enableGradientRemoval: Boolean = false,
+    /** Dual-layer landscape mode: keeps ground & trees sharp while tracking stars */
+    val enableDualLayer: Boolean = false,
 )
 
 enum class StretchType {

@@ -41,6 +41,7 @@ data class CameraUiState(
     val driftHandling: DriftHandling = DriftHandling.CROP,
     val stretchType: StretchType = StretchType.HISTOGRAM,
     val enableGradientRemoval: Boolean = false,
+    val enableDualLayer: Boolean = false,
     val hasMasterDark: Boolean = false,
     val hasMasterFlat: Boolean = false,
     val availableCameras: List<CameraCapabilities> = emptyList(),
@@ -136,12 +137,13 @@ class CameraViewModel @Inject constructor(
     fun setDisableOis(disabled: Boolean) =
         _uiState.update { it.copy(disableOis = disabled) }
 
-    fun setAutoFocus(enabled: Boolean) =
+    fun setAutoFocus(enabled: Boolean) {
         _uiState.update { 
             it.copy(autoFocusEnabled = enabled).also {
                 captureController.setAutoFocusEnabled(enabled)
             }
         }
+    }
 
     fun setStarThreshold(threshold: Int) {
         _uiState.update { it.copy(starThreshold = threshold.coerceIn(20, 255)) }
@@ -161,6 +163,10 @@ class CameraViewModel @Inject constructor(
 
     fun setEnableGradientRemoval(enabled: Boolean) {
         _uiState.update { it.copy(enableGradientRemoval = enabled) }
+    }
+
+    fun setEnableDualLayer(enabled: Boolean) {
+        _uiState.update { it.copy(enableDualLayer = enabled) }
     }
 
     // ─── Calibration ──────────────────────────────────────────────────────────
@@ -218,6 +224,7 @@ class CameraViewModel @Inject constructor(
             driftHandling = state.driftHandling,
             stretchType = state.stretchType,
             enableGradientRemoval = state.enableGradientRemoval,
+            enableDualLayer = state.enableDualLayer,
         )
         captureController.startCaptureSession(settings)
     }

@@ -30,6 +30,7 @@ class ImageStacker @Inject constructor(
     private val starAligner: StarAligner,
     private val histogramStretch: HistogramStretch,
     private val gradientRemoval: GradientRemoval,
+    private val horizonDetector: HorizonDetector,
 ) {
     // ─── Public API ───────────────────────────────────────────────────────────
 
@@ -103,7 +104,8 @@ class ImageStacker @Inject constructor(
         val height = bitmaps[0].height
 
         // ── 2. Detect stars & Quality check & Calculate offsets ────────────────
-        val refStars = starAligner.detectStars(bitmaps[0], starThreshold = config.starThreshold, maxStars = 100)
+        val skyMask = if (config.enableDualLayer) horizonDetector.computeSkyMask(bitmaps[0]) else null
+        val refStars = starAligner.detectStars(bitmaps[0], starThreshold = config.starThreshold, maxStars = 100, skyMask = skyMask)
         val refFwhm = starAligner.calculateAverageFwhm(bitmaps[0], refStars)
         val msg1 = "Reference frame (File 1): Detected ${refStars.size} stars (FWHM = %.2fpx) using threshold ${config.starThreshold}.".format(refFwhm)
         android.util.Log.d("AstroStack", msg1)
@@ -126,7 +128,7 @@ class ImageStacker @Inject constructor(
 
         var referenceFwhm = refFwhm
         bitmaps.drop(1).forEachIndexed { idx, bmp ->
-            val stars = starAligner.detectStars(bmp, starThreshold = config.starThreshold, maxStars = 100)
+            val stars = starAligner.detectStars(bmp, starThreshold = config.starThreshold, maxStars = 100, skyMask = skyMask)
             if (stars.size >= config.minStarCount) {
                 val targetFwhm = starAligner.calculateAverageFwhm(bmp, stars)
                 if (referenceFwhm > 0f && targetFwhm > referenceFwhm * 1.4f) {
@@ -215,7 +217,15 @@ class ImageStacker @Inject constructor(
             validBitmaps.forEachIndexed { i, bmp ->
                 val transform = offsets[i]
                 if (transform.tx != 0f || transform.ty != 0f || transform.angleRad != 0f) {
-                    aligned.add(applyRigidTransform(bmp, transform))
+                    val warpedSky = applyRigidTransform(bmp, transform)
+                    val blended = if (config.enableDualLayer && skyMask != null) {
+                        val bl = horizonDetector.blend(warpedSky, bmp, skyMask)
+                        if (warpedSky !== bmp) warpedSky.recycle()
+                        bl
+                    } else {
+                        warpedSky
+                    }
+                    aligned.add(blended)
                 } else {
                     aligned.add(bmp)
                 }

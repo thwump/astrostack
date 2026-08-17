@@ -399,6 +399,26 @@ fun CameraScreen(
                                     )
                                 }
 
+                                // Dual-Layer Landscape Stacking toggle
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text("Dual-Layer Landscape Mode", color = Color.Gray, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        Text(if (uiState.enableDualLayer) "Tracking sky while keeping ground & trees sharp" else "Off (Full-frame star tracking)", color = Color.DarkGray, fontSize = 9.sp)
+                                    }
+                                    Switch(
+                                        checked = uiState.enableDualLayer,
+                                        onCheckedChange = { viewModel.setEnableDualLayer(it) },
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                            checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                                        )
+                                    )
+                                }
+
                                 // Theme Selector row
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),

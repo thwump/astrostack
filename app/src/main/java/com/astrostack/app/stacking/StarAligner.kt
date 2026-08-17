@@ -44,6 +44,7 @@ class StarAligner @Inject constructor() {
         starThreshold: Int = -1,
         minDistance: Int = 8,
         maxStars: Int = 100,
+        skyMask: FloatArray? = null,
     ): List<Star> = withContext(Dispatchers.Default) {
         val width = bitmap.width
         val height = bitmap.height
@@ -74,6 +75,7 @@ class StarAligner @Inject constructor() {
 
         for (y in halfWin until height - halfWin) {
             for (x in halfWin until width - halfWin) {
+                if (skyMask != null && skyMask[y * width + x] < 0.5f) continue
                 val v = luma[y * width + x].toInt() and 0xFF
                 if (v < actualThreshold) continue
                 if (!isLocalMax(luma, x, y, width, halfWin)) continue

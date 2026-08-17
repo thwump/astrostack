@@ -11,6 +11,7 @@ import com.astrostack.app.stacking.StarAligner
 import com.astrostack.app.stacking.HistogramStretch
 import com.astrostack.app.stacking.ImageStacker
 import com.astrostack.app.stacking.GradientRemoval
+import com.astrostack.app.stacking.HorizonDetector
 import java.io.FileOutputStream
 import dagger.hilt.android.qualifiers.ApplicationContext
 
@@ -44,6 +45,7 @@ class CaptureController @Inject constructor(
     private val starAligner: StarAligner,
     private val histogramStretch: HistogramStretch,
     private val gradientRemoval: GradientRemoval,
+    private val horizonDetector: HorizonDetector,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -292,7 +294,8 @@ class CaptureController @Inject constructor(
                                     gradientRemoval.removeGradient(bmp)
                                 }
 
-                                val stars = starAligner.detectStars(bmp, starThreshold = settings.starThreshold, maxStars = 100)
+                                val skyMask = if (settings.enableDualLayer) horizonDetector.computeSkyMask(bmp) else null
+                                val stars = starAligner.detectStars(bmp, starThreshold = settings.starThreshold, maxStars = 100, skyMask = skyMask)
                                 if (stars.size < 3 && liveAccumulator == null) {
                                     bmp.recycle()
                                     val msg = "Frame $totalCaptured: REJECTED. Detected ${stars.size} stars < minimum 3 for reference frame initialization."
@@ -371,7 +374,8 @@ class CaptureController @Inject constructor(
                                     } else 1.0f
 
                                     val angleDeg = Math.toDegrees(transform.angleRad.toDouble()).toFloat()
-                                    val msg = "Frame $totalCaptured: ALIGNED. Shift = (%.2fpx, %.2fpx), Rot = %.3f°, Match Quality = %d%% (Detected %d stars, FWHM = %.2fpx)."
+                                    val modeLabel = if (settings.enableDualLayer) " [Dual-Layer Landscape]" else ""
+                                    val msg = "Frame $totalCaptured: ALIGNED$modeLabel. Shift = (%.2fpx, %.2fpx), Rot = %.3f°, Match Quality = %d%% (Detected %d stars, FWHM = %.2fpx)."
                                         .format(transform.tx, transform.ty, angleDeg, (qual * 100).toInt(), stars.size, targetFwhm)
                                     android.util.Log.d("AstroStack", msg)
                                     withContext(Dispatchers.IO) {
@@ -379,7 +383,14 @@ class CaptureController @Inject constructor(
                                         diagWriter?.flush()
                                     }
 
-                                    val alignedBmp = starAligner.applyRigidTransform(bmp, transform)
+                                    val alignedBmp = if (settings.enableDualLayer && skyMask != null) {
+                                        val warpedSky = starAligner.applyRigidTransform(bmp, transform)
+                                        val blended = horizonDetector.blend(warpedSky, bmp, skyMask)
+                                        if (warpedSky !== bmp) warpedSky.recycle()
+                                        blended
+                                    } else {
+                                        starAligner.applyRigidTransform(bmp, transform)
+                                    }
 
                                     val size = liveWidth * liveHeight
                                     val pixels = IntArray(size)
@@ -717,8 +728,9 @@ class CaptureController @Inject constructor(
                                 minStarCount = settings.minStarCount,
                                 stretchType = settings.stretchType,
                                 enableGradientRemoval = settings.enableGradientRemoval,
+                                enableDualLayer = settings.enableDualLayer,
                             )
-                            ImageStacker(context, starAligner, histogramStretch, gradientRemoval).stack(
+                            ImageStacker(context, starAligner, histogramStretch, gradientRemoval, horizonDetector).stack(
                                 files = files,
                                 config = config,
                                 onProgress = {}

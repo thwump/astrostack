@@ -106,5 +106,6 @@ data class StackingConfig(
     val starThreshold: Int = -1,
     val stretchType: StretchType = StretchType.HISTOGRAM,
     val enableGradientRemoval: Boolean = false,
+    val enableDualLayer: Boolean = false,
 )
 
