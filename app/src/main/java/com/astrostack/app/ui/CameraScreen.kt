@@ -26,6 +26,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -84,9 +85,8 @@ fun CameraScreen(
         // ── Live viewfinder ──────────────────────────────────────────────────
         CameraPreview(
             modifier = Modifier.fillMaxSize(),
-            sensorAspectRatio = uiState.capabilities?.let {
-                it.rawSensorWidth.toFloat() / it.rawSensorHeight.toFloat()
-            } ?: (4f / 3f),
+            sensorWidth = uiState.capabilities?.rawSensorWidth ?: 4080,
+            sensorHeight = uiState.capabilities?.rawSensorHeight ?: 3072,
             scaleMode = uiState.previewScaleMode,
             onSurfaceReady = { surface -> viewModel.openCamera(surface) },
         )
@@ -872,62 +872,132 @@ private fun AstroSettingsBottomSheet(
 @Composable
 private fun CameraPreview(
     modifier: Modifier,
-    sensorAspectRatio: Float,
+    sensorWidth: Int,
+    sensorHeight: Int,
     scaleMode: com.astrostack.app.camera.PreviewScaleMode,
     onSurfaceReady: (android.view.Surface) -> Unit,
 ) {
-    BoxWithConstraints(
+    val context = LocalContext.current
+    val windowManager = remember { context.getSystemService(android.content.Context.WINDOW_SERVICE) as android.view.WindowManager }
+
+    AndroidView(
+        factory = { ctx ->
+            android.view.TextureView(ctx).apply {
+                surfaceTextureListener = object : android.view.TextureView.SurfaceTextureListener {
+                    override fun onSurfaceTextureAvailable(surface: android.graphics.SurfaceTexture, width: Int, height: Int) {
+                        val pWidth = if (sensorWidth > 0) sensorWidth else 4080
+                        val pHeight = if (sensorHeight > 0) sensorHeight else 3072
+                        surface.setDefaultBufferSize(pWidth, pHeight)
+
+                        val rotation = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                            ctx.display?.rotation ?: android.view.Surface.ROTATION_0
+                        } else {
+                            @Suppress("DEPRECATION")
+                            windowManager.defaultDisplay.rotation
+                        }
+
+                        configureTransform(this@apply, width, height, pWidth, pHeight, rotation, scaleMode)
+                        onSurfaceReady(android.view.Surface(surface))
+                    }
+
+                    override fun onSurfaceTextureSizeChanged(surface: android.graphics.SurfaceTexture, width: Int, height: Int) {
+                        val pWidth = if (sensorWidth > 0) sensorWidth else 4080
+                        val pHeight = if (sensorHeight > 0) sensorHeight else 3072
+                        val rotation = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                            ctx.display?.rotation ?: android.view.Surface.ROTATION_0
+                        } else {
+                            @Suppress("DEPRECATION")
+                            windowManager.defaultDisplay.rotation
+                        }
+                        configureTransform(this@apply, width, height, pWidth, pHeight, rotation, scaleMode)
+                    }
+
+                    override fun onSurfaceTextureDestroyed(surface: android.graphics.SurfaceTexture): Boolean = true
+                    override fun onSurfaceTextureUpdated(surface: android.graphics.SurfaceTexture) {}
+                }
+            }
+        },
+        update = { textureView ->
+            if (textureView.isAvailable) {
+                val pWidth = if (sensorWidth > 0) sensorWidth else 4080
+                val pHeight = if (sensorHeight > 0) sensorHeight else 3072
+                val rotation = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                    context.display?.rotation ?: android.view.Surface.ROTATION_0
+                } else {
+                    @Suppress("DEPRECATION")
+                    windowManager.defaultDisplay.rotation
+                }
+                configureTransform(textureView, textureView.width, textureView.height, pWidth, pHeight, rotation, scaleMode)
+            }
+        },
         modifier = modifier
             .fillMaxSize()
-            .clipToBounds()
             .background(Color.Black)
-    ) {
-        val isLandscape = maxWidth > maxHeight
-        // In portrait mode, the sensor image is rotated 90°, so effective aspect is 1 / sensorAspectRatio (~0.75).
-        // In landscape mode, effective aspect is sensorAspectRatio (~1.333).
-        val targetAspect = if (isLandscape) sensorAspectRatio else (1f / sensorAspectRatio)
-        val screenAspect = maxWidth.value / maxHeight.value
+    )
+}
 
-        val viewWidth: Dp
-        val viewHeight: Dp
+private fun configureTransform(
+    textureView: android.view.TextureView,
+    viewWidth: Int,
+    viewHeight: Int,
+    previewWidth: Int,
+    previewHeight: Int,
+    rotation: Int,
+    scaleMode: com.astrostack.app.camera.PreviewScaleMode
+) {
+    if (viewWidth == 0 || viewHeight == 0) return
+    val matrix = android.graphics.Matrix()
+    val viewRect = android.graphics.RectF(0f, 0f, viewWidth.toFloat(), viewHeight.toFloat())
+    val centerX = viewRect.centerX()
+    val centerY = viewRect.centerY()
 
-        if (scaleMode == com.astrostack.app.camera.PreviewScaleMode.FILL) {
-            // Crop to fill entire screen (no black bars)
-            if (targetAspect > screenAspect) {
-                viewHeight = maxHeight
-                viewWidth = maxHeight * targetAspect
-            } else {
-                viewWidth = maxWidth
-                viewHeight = maxWidth / targetAspect
-            }
+    // Sensor native buffer is landscape (e.g. 4080x3072)
+    // For back camera, native sensor orientation is 90 degrees.
+    if (rotation == android.view.Surface.ROTATION_90 || rotation == android.view.Surface.ROTATION_270) {
+        val bufferRect = android.graphics.RectF(0f, 0f, previewHeight.toFloat(), previewWidth.toFloat())
+        bufferRect.offset(centerX - bufferRect.centerX(), centerY - bufferRect.centerY())
+        matrix.setRectToRect(viewRect, bufferRect, android.graphics.Matrix.ScaleToFit.FILL)
+
+        val scaleX = viewWidth.toFloat() / previewHeight.toFloat()
+        val scaleY = viewHeight.toFloat() / previewWidth.toFloat()
+        val scale = if (scaleMode == com.astrostack.app.camera.PreviewScaleMode.FILL) {
+            maxOf(scaleX, scaleY)
         } else {
-            // Fit entire frame with black bars (letterbox/pillarbox, full FOV preserved)
-            if (targetAspect > screenAspect) {
-                viewWidth = maxWidth
-                viewHeight = maxWidth / targetAspect
-            } else {
-                viewHeight = maxHeight
-                viewWidth = maxHeight * targetAspect
-            }
+            minOf(scaleX, scaleY)
         }
 
-        AndroidView(
-            factory = { ctx ->
-                SurfaceView(ctx).also { sv ->
-                    sv.holder.addCallback(object : SurfaceHolder.Callback {
-                        override fun surfaceCreated(holder: SurfaceHolder) {
-                            onSurfaceReady(holder.surface)
-                        }
-                        override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {}
-                        override fun surfaceDestroyed(holder: SurfaceHolder) {}
-                    })
-                }
-            },
-            modifier = Modifier
-                .requiredSize(viewWidth, viewHeight)
-                .align(Alignment.Center),
+        matrix.postScale(
+            scale * previewHeight.toFloat() / viewWidth.toFloat(),
+            scale * previewWidth.toFloat() / viewHeight.toFloat(),
+            centerX,
+            centerY
+        )
+        matrix.postRotate((90 * (rotation - 2)).toFloat(), centerX, centerY)
+    } else if (rotation == android.view.Surface.ROTATION_180) {
+        matrix.postRotate(180f, centerX, centerY)
+    } else {
+        // ROTATION_0 (Portrait)
+        val bufferRect = android.graphics.RectF(0f, 0f, previewHeight.toFloat(), previewWidth.toFloat())
+        bufferRect.offset(centerX - bufferRect.centerX(), centerY - bufferRect.centerY())
+        matrix.setRectToRect(viewRect, bufferRect, android.graphics.Matrix.ScaleToFit.FILL)
+
+        val scaleX = viewWidth.toFloat() / previewHeight.toFloat()
+        val scaleY = viewHeight.toFloat() / previewWidth.toFloat()
+        val scale = if (scaleMode == com.astrostack.app.camera.PreviewScaleMode.FILL) {
+            maxOf(scaleX, scaleY)
+        } else {
+            minOf(scaleX, scaleY)
+        }
+
+        matrix.postScale(
+            scale * previewHeight.toFloat() / viewWidth.toFloat(),
+            scale * previewWidth.toFloat() / viewHeight.toFloat(),
+            centerX,
+            centerY
         )
     }
+
+    textureView.setTransform(matrix)
 }
 
 // ─── Manual Controls Sliders Panel ────────────────────────────────────────────

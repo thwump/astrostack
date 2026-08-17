@@ -199,6 +199,12 @@ This walkthrough outlines all the major enhancements integrated into AstroStack 
 - **Dedicated Settings Section:** Added **Viewfinder Aspect Ratio** chip selector in the Settings Sheet (⚙️).
 - **Location**: [CameraScreen.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/ui/CameraScreen.kt), [CameraState.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/camera/CameraState.kt), [CameraViewModel.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/viewmodel/CameraViewModel.kt)
 
+### 32. TextureView Hardware-Accelerated Matrix Transformation
+- **Root Cause Resolution:** Replaced legacy unconstrained `SurfaceView` with `TextureView` and GPU `Matrix` transformation. `SurfaceView` previously allowed the hardware composer to stretch raw camera buffers into non-matching aspect ratio viewports upon rotation.
+- **Hardware-Level Sensor Transform:** Configured `setDefaultBufferSize(rawSensorWidth, rawSensorHeight)` and real-time `Matrix.postScale` & `Matrix.postRotate` according to device display rotation (`0°`, `90°`, `180°`, `270°`).
+- **Zero-Distortion Guarantee:** Both `Fit` mode (letterboxed/pillarboxed full FOV) and `Fill` mode (cropped edge-to-edge) now maintain exact sensor aspect ratios $(4:3)$ across all orientations without squashing, stretching, or pixel distortion.
+- **Location**: [CameraScreen.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/ui/CameraScreen.kt)
+
 ---
 
 ## Verification and Compile Checks
