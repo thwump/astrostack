@@ -205,6 +205,13 @@ This walkthrough outlines all the major enhancements integrated into AstroStack 
 - **Zero-Distortion Guarantee:** Both `Fit` mode (letterboxed/pillarboxed full FOV) and `Fill` mode (cropped edge-to-edge) now maintain exact sensor aspect ratios $(4:3)$ across all orientations without squashing, stretching, or pixel distortion.
 - **Location**: [CameraScreen.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/ui/CameraScreen.kt)
 
+### 33. Sensor-Locked Fixed Viewport & Tripod Angle Invariance
+- **Orientation-Independent Viewport:** Locked `MainActivity` to fixed portrait coordinates (`android:screenOrientation="portrait"`). When mounting the phone on a tripod at any arbitrary angle (landscape, diagonal, zenith-pointing), the phone screen and camera sensor are physically unified without window-manager re-layouts or buffer distortions.
+- **Pure Geometric Aspect Constraint:** Constrained the preview surface to the sensor's exact $3:4$ optical aspect ratio ($1 / \text{sensorAspect}$) with zero dynamic matrix rotation or angle sensing.
+  - **Fit Mode:** Centers the undistorted $3:4$ sensor image with black letterbox bars on the phone display.
+  - **Fill Mode:** Scales the $3:4$ sensor image uniformly to fill the display edge-to-edge.
+- **Location**: [AndroidManifest.xml](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/AndroidManifest.xml), [CameraScreen.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/ui/CameraScreen.kt)
+
 ---
 
 ## Verification and Compile Checks
