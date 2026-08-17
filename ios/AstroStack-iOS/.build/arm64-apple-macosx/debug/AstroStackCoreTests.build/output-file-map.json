@@ -1,0 +1,12 @@
+{
+  "": {
+    "swift-dependencies": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCoreTests.build/primary.swiftdeps"
+  },
+  "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Tests/AstroStackCoreTests/main.swift": {
+    "dependencies": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCoreTests.build/main.d",
+    "object": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCoreTests.build/main.swift.o",
+    "swiftmodule": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCoreTests.build/main~partial.swiftmodule",
+    "swift-dependencies": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCoreTests.build/main.swiftdeps",
+    "diagnostics": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCoreTests.build/main.dia"
+  }
+}

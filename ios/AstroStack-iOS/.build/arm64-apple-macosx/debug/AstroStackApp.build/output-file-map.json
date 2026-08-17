@@ -1,0 +1,40 @@
+{
+  "": {
+    "swift-dependencies": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/primary.swiftdeps"
+  },
+  "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackApp/AstroStackApp.swift": {
+    "dependencies": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/AstroStackApp.d",
+    "object": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/AstroStackApp.swift.o",
+    "swiftmodule": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/AstroStackApp~partial.swiftmodule",
+    "swift-dependencies": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/AstroStackApp.swiftdeps",
+    "diagnostics": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/AstroStackApp.dia"
+  },
+  "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackApp/Camera/AVCameraManager.swift": {
+    "dependencies": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/AVCameraManager.d",
+    "object": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/AVCameraManager.swift.o",
+    "swiftmodule": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/AVCameraManager~partial.swiftmodule",
+    "swift-dependencies": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/AVCameraManager.swiftdeps",
+    "diagnostics": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/AVCameraManager.dia"
+  },
+  "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackApp/ViewModels/CameraViewModel.swift": {
+    "dependencies": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/CameraViewModel.d",
+    "object": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/CameraViewModel.swift.o",
+    "swiftmodule": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/CameraViewModel~partial.swiftmodule",
+    "swift-dependencies": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/CameraViewModel.swiftdeps",
+    "diagnostics": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/CameraViewModel.dia"
+  },
+  "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackApp/Views/CameraView.swift": {
+    "dependencies": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/CameraView.d",
+    "object": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/CameraView.swift.o",
+    "swiftmodule": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/CameraView~partial.swiftmodule",
+    "swift-dependencies": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/CameraView.swiftdeps",
+    "diagnostics": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/CameraView.dia"
+  },
+  "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackApp/Views/SettingsSheetView.swift": {
+    "dependencies": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/SettingsSheetView.d",
+    "object": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/SettingsSheetView.swift.o",
+    "swiftmodule": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/SettingsSheetView~partial.swiftmodule",
+    "swift-dependencies": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/SettingsSheetView.swiftdeps",
+    "diagnostics": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/SettingsSheetView.dia"
+  }
+}

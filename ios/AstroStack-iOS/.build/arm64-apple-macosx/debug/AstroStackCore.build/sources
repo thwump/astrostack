@@ -1,0 +1,9 @@
+/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Models/CameraModels.swift
+/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Models/StackingModels.swift
+/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Processing/Demosaic.swift
+/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Processing/HistogramStretch.swift
+/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Stacking/Calibration.swift
+/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Stacking/HorizonDetector.swift
+/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Stacking/ImageStacker.swift
+/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Stacking/StarAligner.swift
+/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Storage/FitsWriter.swift

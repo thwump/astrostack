@@ -1,0 +1,775 @@
+{
+  "builtTestProducts" : [
+
+  ],
+  "copyCommands" : {
+
+  },
+  "explicitTargetDependencyImportCheckingMode" : {
+    "none" : {
+
+    }
+  },
+  "generatedSourceTargetSet" : [
+
+  ],
+  "pluginDescriptions" : [
+
+  ],
+  "swiftCommands" : {
+    "C.AstroStackApp-arm64-apple-macosx-debug.module" : {
+      "executable" : "/Library/Developer/CommandLineTools/usr/bin/swiftc",
+      "fileList" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/sources",
+      "importPath" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackApp/AstroStackApp.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackApp/Camera/AVCameraManager.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackApp/ViewModels/CameraViewModel.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackApp/Views/CameraView.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackApp/Views/SettingsSheetView.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/swift-version--1AB21518FC5DEDBE.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/Modules/AstroStackCore.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "AstroStackApp",
+      "moduleOutputPath" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/Modules/AstroStackApp.swiftmodule",
+      "objects" : [
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/AstroStackApp.swift.o",
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/AVCameraManager.swift.o",
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/CameraViewModel.swift.o",
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/CameraView.swift.o",
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/SettingsSheetView.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx14.0",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-j8",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-emit-objc-header",
+        "-emit-objc-header-path",
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/include/AstroStackApp-Swift.h",
+        "-swift-version",
+        "5",
+        "-I",
+        "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+        "-L",
+        "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+        "-plugin-path",
+        "/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "astrostack_ios"
+      ],
+      "outputFileMapPath" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/AstroStackApp.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/AVCameraManager.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/CameraViewModel.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/CameraView.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/SettingsSheetView.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/Modules/AstroStackApp.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackApp/AstroStackApp.swift",
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackApp/Camera/AVCameraManager.swift",
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackApp/ViewModels/CameraViewModel.swift",
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackApp/Views/CameraView.swift",
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackApp/Views/SettingsSheetView.swift"
+      ],
+      "tempsPath" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build",
+      "wholeModuleOptimization" : false
+    },
+    "C.AstroStackCore-arm64-apple-macosx-debug.module" : {
+      "executable" : "/Library/Developer/CommandLineTools/usr/bin/swiftc",
+      "fileList" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/sources",
+      "importPath" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Models/CameraModels.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Models/StackingModels.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Processing/Demosaic.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Processing/HistogramStretch.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Stacking/Calibration.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Stacking/HorizonDetector.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Stacking/ImageStacker.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Stacking/StarAligner.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Storage/FitsWriter.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/swift-version--1AB21518FC5DEDBE.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "AstroStackCore",
+      "moduleOutputPath" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/Modules/AstroStackCore.swiftmodule",
+      "objects" : [
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/CameraModels.swift.o",
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/StackingModels.swift.o",
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/Demosaic.swift.o",
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/HistogramStretch.swift.o",
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/Calibration.swift.o",
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/HorizonDetector.swift.o",
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/ImageStacker.swift.o",
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/StarAligner.swift.o",
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/FitsWriter.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx14.0",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-j8",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-emit-objc-header",
+        "-emit-objc-header-path",
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/include/AstroStackCore-Swift.h",
+        "-swift-version",
+        "5",
+        "-I",
+        "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+        "-L",
+        "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+        "-plugin-path",
+        "/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "astrostack_ios"
+      ],
+      "outputFileMapPath" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/CameraModels.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/StackingModels.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/Demosaic.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/HistogramStretch.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/Calibration.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/HorizonDetector.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/ImageStacker.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/StarAligner.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/FitsWriter.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/Modules/AstroStackCore.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Models/CameraModels.swift",
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Models/StackingModels.swift",
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Processing/Demosaic.swift",
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Processing/HistogramStretch.swift",
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Stacking/Calibration.swift",
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Stacking/HorizonDetector.swift",
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Stacking/ImageStacker.swift",
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Stacking/StarAligner.swift",
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Storage/FitsWriter.swift"
+      ],
+      "tempsPath" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build",
+      "wholeModuleOptimization" : false
+    },
+    "C.AstroStackCoreTests-arm64-apple-macosx-debug.module" : {
+      "executable" : "/Library/Developer/CommandLineTools/usr/bin/swiftc",
+      "fileList" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCoreTests.build/sources",
+      "importPath" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Tests/AstroStackCoreTests/main.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/swift-version--1AB21518FC5DEDBE.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/Modules/AstroStackCore.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCoreTests.build/sources"
+        }
+      ],
+      "isLibrary" : false,
+      "moduleName" : "AstroStackCoreTests",
+      "moduleOutputPath" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/Modules/AstroStackCoreTests.swiftmodule",
+      "objects" : [
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCoreTests.build/main.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx14.0",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-j8",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-Xfrontend",
+        "-entry-point-function-name",
+        "-Xfrontend",
+        "AstroStackCoreTests_main",
+        "-swift-version",
+        "5",
+        "-I",
+        "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+        "-L",
+        "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+        "-plugin-path",
+        "/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "astrostack_ios"
+      ],
+      "outputFileMapPath" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCoreTests.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCoreTests.build/main.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/Modules/AstroStackCoreTests.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Tests/AstroStackCoreTests/main.swift"
+      ],
+      "tempsPath" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCoreTests.build",
+      "wholeModuleOptimization" : false
+    }
+  },
+  "swiftFrontendCommands" : {
+
+  },
+  "swiftTargetScanArgs" : {
+    "AstroStackApp" : [
+      "/Library/Developer/CommandLineTools/usr/bin/swiftc",
+      "-module-name",
+      "AstroStackApp",
+      "-package-name",
+      "astrostack_ios",
+      "-c",
+      "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackApp/AstroStackApp.swift",
+      "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackApp/Camera/AVCameraManager.swift",
+      "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackApp/ViewModels/CameraViewModel.swift",
+      "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackApp/Views/CameraView.swift",
+      "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackApp/Views/SettingsSheetView.swift",
+      "-I",
+      "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/Modules",
+      "-target",
+      "arm64-apple-macosx14.0",
+      "-incremental",
+      "-enable-batch-mode",
+      "-serialize-diagnostics",
+      "-index-store-path",
+      "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/index/store",
+      "-Onone",
+      "-enable-testing",
+      "-j8",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+      "-module-cache-path",
+      "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-emit-objc-header",
+      "-emit-objc-header-path",
+      "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/include/AstroStackApp-Swift.h",
+      "-swift-version",
+      "5",
+      "-I",
+      "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+      "-L",
+      "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+      "-plugin-path",
+      "/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "astrostack_ios",
+      "-driver-use-frontend-path",
+      "/Library/Developer/CommandLineTools/usr/bin/swiftc"
+    ],
+    "AstroStackCore" : [
+      "/Library/Developer/CommandLineTools/usr/bin/swiftc",
+      "-module-name",
+      "AstroStackCore",
+      "-package-name",
+      "astrostack_ios",
+      "-c",
+      "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Models/CameraModels.swift",
+      "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Models/StackingModels.swift",
+      "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Processing/Demosaic.swift",
+      "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Processing/HistogramStretch.swift",
+      "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Stacking/Calibration.swift",
+      "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Stacking/HorizonDetector.swift",
+      "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Stacking/ImageStacker.swift",
+      "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Stacking/StarAligner.swift",
+      "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Storage/FitsWriter.swift",
+      "-I",
+      "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/Modules",
+      "-target",
+      "arm64-apple-macosx14.0",
+      "-incremental",
+      "-enable-batch-mode",
+      "-serialize-diagnostics",
+      "-index-store-path",
+      "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/index/store",
+      "-Onone",
+      "-enable-testing",
+      "-j8",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+      "-module-cache-path",
+      "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-emit-objc-header",
+      "-emit-objc-header-path",
+      "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/include/AstroStackCore-Swift.h",
+      "-swift-version",
+      "5",
+      "-I",
+      "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+      "-L",
+      "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+      "-plugin-path",
+      "/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "astrostack_ios",
+      "-driver-use-frontend-path",
+      "/Library/Developer/CommandLineTools/usr/bin/swiftc"
+    ],
+    "AstroStackCoreTests" : [
+      "/Library/Developer/CommandLineTools/usr/bin/swiftc",
+      "-module-name",
+      "AstroStackCoreTests",
+      "-package-name",
+      "astrostack_ios",
+      "-c",
+      "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Tests/AstroStackCoreTests/main.swift",
+      "-I",
+      "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/Modules",
+      "-target",
+      "arm64-apple-macosx14.0",
+      "-incremental",
+      "-enable-batch-mode",
+      "-serialize-diagnostics",
+      "-index-store-path",
+      "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/index/store",
+      "-Onone",
+      "-enable-testing",
+      "-j8",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+      "-module-cache-path",
+      "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/ModuleCache",
+      "-parseable-output",
+      "-Xfrontend",
+      "-entry-point-function-name",
+      "-Xfrontend",
+      "AstroStackCoreTests_main",
+      "-swift-version",
+      "5",
+      "-I",
+      "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+      "-L",
+      "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+      "-plugin-path",
+      "/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "astrostack_ios",
+      "-driver-use-frontend-path",
+      "/Library/Developer/CommandLineTools/usr/bin/swiftc"
+    ]
+  },
+  "targetDependencyMap" : {
+    "AstroStackApp" : [
+      "AstroStackCore"
+    ],
+    "AstroStackCore" : [
+
+    ],
+    "AstroStackCoreTests" : [
+      "AstroStackCore"
+    ]
+  },
+  "testDiscoveryCommands" : {
+
+  },
+  "testEntryPointCommands" : {
+
+  },
+  "traitConfiguration" : {
+    "default" : {
+
+    }
+  },
+  "writeCommands" : {
+    "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackApp/AstroStackApp.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackApp/Camera/AVCameraManager.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackApp/ViewModels/CameraViewModel.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackApp/Views/CameraView.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackApp/Views/SettingsSheetView.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackApp.build/sources"
+    },
+    "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Models/CameraModels.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Models/StackingModels.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Processing/Demosaic.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Processing/HistogramStretch.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Stacking/Calibration.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Stacking/HorizonDetector.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Stacking/ImageStacker.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Stacking/StarAligner.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Storage/FitsWriter.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/sources"
+    },
+    "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCoreTests-entitlement.plist" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<entitlement-plist>"
+        },
+        {
+          "kind" : "virtual",
+          "name" : "<com.apple.security.get-task-allow>"
+        }
+      ],
+      "outputFilePath" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCoreTests-entitlement.plist"
+    },
+    "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCoreTests.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Tests/AstroStackCoreTests/main.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCoreTests.build/sources"
+    },
+    "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCoreTests.product/Objects.LinkFileList" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<link-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/Calibration.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/CameraModels.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/Demosaic.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/FitsWriter.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/HistogramStretch.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/HorizonDetector.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/ImageStacker.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/StackingModels.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/StarAligner.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCoreTests.build/main.swift.o"
+        }
+      ],
+      "outputFilePath" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCoreTests.product/Objects.LinkFileList"
+    },
+    "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/swift-version--1AB21518FC5DEDBE.txt" : {
+      "alwaysOutOfDate" : true,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<swift-get-version>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Library/Developer/CommandLineTools/usr/bin/swiftc"
+        }
+      ],
+      "outputFilePath" : "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/swift-version--1AB21518FC5DEDBE.txt"
+    }
+  }
+}

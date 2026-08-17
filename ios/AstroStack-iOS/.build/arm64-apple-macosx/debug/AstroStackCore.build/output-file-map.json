@@ -1,0 +1,68 @@
+{
+  "": {
+    "swift-dependencies": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/primary.swiftdeps"
+  },
+  "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Models/CameraModels.swift": {
+    "dependencies": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/CameraModels.d",
+    "object": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/CameraModels.swift.o",
+    "swiftmodule": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/CameraModels~partial.swiftmodule",
+    "swift-dependencies": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/CameraModels.swiftdeps",
+    "diagnostics": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/CameraModels.dia"
+  },
+  "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Models/StackingModels.swift": {
+    "dependencies": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/StackingModels.d",
+    "object": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/StackingModels.swift.o",
+    "swiftmodule": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/StackingModels~partial.swiftmodule",
+    "swift-dependencies": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/StackingModels.swiftdeps",
+    "diagnostics": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/StackingModels.dia"
+  },
+  "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Processing/Demosaic.swift": {
+    "dependencies": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/Demosaic.d",
+    "object": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/Demosaic.swift.o",
+    "swiftmodule": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/Demosaic~partial.swiftmodule",
+    "swift-dependencies": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/Demosaic.swiftdeps",
+    "diagnostics": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/Demosaic.dia"
+  },
+  "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Processing/HistogramStretch.swift": {
+    "dependencies": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/HistogramStretch.d",
+    "object": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/HistogramStretch.swift.o",
+    "swiftmodule": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/HistogramStretch~partial.swiftmodule",
+    "swift-dependencies": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/HistogramStretch.swiftdeps",
+    "diagnostics": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/HistogramStretch.dia"
+  },
+  "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Stacking/Calibration.swift": {
+    "dependencies": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/Calibration.d",
+    "object": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/Calibration.swift.o",
+    "swiftmodule": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/Calibration~partial.swiftmodule",
+    "swift-dependencies": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/Calibration.swiftdeps",
+    "diagnostics": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/Calibration.dia"
+  },
+  "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Stacking/HorizonDetector.swift": {
+    "dependencies": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/HorizonDetector.d",
+    "object": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/HorizonDetector.swift.o",
+    "swiftmodule": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/HorizonDetector~partial.swiftmodule",
+    "swift-dependencies": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/HorizonDetector.swiftdeps",
+    "diagnostics": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/HorizonDetector.dia"
+  },
+  "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Stacking/ImageStacker.swift": {
+    "dependencies": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/ImageStacker.d",
+    "object": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/ImageStacker.swift.o",
+    "swiftmodule": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/ImageStacker~partial.swiftmodule",
+    "swift-dependencies": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/ImageStacker.swiftdeps",
+    "diagnostics": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/ImageStacker.dia"
+  },
+  "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Stacking/StarAligner.swift": {
+    "dependencies": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/StarAligner.d",
+    "object": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/StarAligner.swift.o",
+    "swiftmodule": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/StarAligner~partial.swiftmodule",
+    "swift-dependencies": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/StarAligner.swiftdeps",
+    "diagnostics": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/StarAligner.dia"
+  },
+  "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/Sources/AstroStackCore/Storage/FitsWriter.swift": {
+    "dependencies": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/FitsWriter.d",
+    "object": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/FitsWriter.swift.o",
+    "swiftmodule": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/FitsWriter~partial.swiftmodule",
+    "swift-dependencies": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/FitsWriter.swiftdeps",
+    "diagnostics": "/Users/rob/.gemini/antigravity/scratch/astrostack/ios/AstroStack-iOS/.build/arm64-apple-macosx/debug/AstroStackCore.build/FitsWriter.dia"
+  }
+}
