@@ -191,6 +191,14 @@ This walkthrough outlines all the major enhancements integrated into AstroStack 
 - **Unified Settings Modal Bottom Sheet (⚙️):** Grouped all advanced astrophotography settings (Exposure & ISO sliders, NPF Tripod limits, Stacking toggles, Dual-Layer mode, Stretch modes, Gradient removal, Star threshold, RAW DNG storage, Dark/Flat calibration wizards) into a single, beautifully organized modal sheet that slides up on demand and disappears completely during active shooting.
 - **Location**: [CameraScreen.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/ui/CameraScreen.kt)
 
+### 31. Orientation-Aware Aspect Ratio & Viewfinder Modes (Fit vs. Fill)
+- **Orientation-Aware Scaling Calculation:** Fixed landscape rotation distortion by evaluating sensor aspect ratio dynamically based on current viewport orientation (`sensorAspectRatio` in landscape vs `1 / sensorAspectRatio` in portrait).
+- **User-Selectable Display Modes (`PreviewScaleMode`):**
+  - **Fit (Black Bars / Full FOV):** Letterboxes/pillarboxes the preview so 100% of the camera sensor frame is visible with zero cropping and zero optical distortion.
+  - **Fill (Crop to Screen):** Expands the camera frame to fill the entire phone screen edge-to-edge without black bars, maintaining correct aspect ratio without geometric distortion.
+- **Dedicated Settings Section:** Added **Viewfinder Aspect Ratio** chip selector in the Settings Sheet (⚙️).
+- **Location**: [CameraScreen.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/ui/CameraScreen.kt), [CameraState.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/camera/CameraState.kt), [CameraViewModel.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/viewmodel/CameraViewModel.kt)
+
 ---
 
 ## Verification and Compile Checks

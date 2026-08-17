@@ -87,6 +87,7 @@ fun CameraScreen(
             sensorAspectRatio = uiState.capabilities?.let {
                 it.rawSensorWidth.toFloat() / it.rawSensorHeight.toFloat()
             } ?: (4f / 3f),
+            scaleMode = uiState.previewScaleMode,
             onSurfaceReady = { surface -> viewModel.openCamera(surface) },
         )
 
@@ -95,7 +96,7 @@ fun CameraScreen(
             androidx.compose.foundation.Image(
                 bitmap = bitmap.asImageBitmap(),
                 contentDescription = "Live Stack Preview",
-                contentScale = ContentScale.Crop,
+                contentScale = if (uiState.previewScaleMode == com.astrostack.app.camera.PreviewScaleMode.FILL) ContentScale.Crop else ContentScale.Fit,
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color.Black)
@@ -686,7 +687,42 @@ private fun AstroSettingsBottomSheet(
                 }
             }
 
-            // ── Section 4: Sensor Calibration ─────────────────────────────────
+            // ── Section 4: Viewfinder Display Mode ────────────────────────────
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.04f)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Viewfinder Aspect Ratio", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text("Choose how the camera sensor frame fits your phone screen", color = Color.Gray, fontSize = 9.sp)
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = uiState.previewScaleMode == com.astrostack.app.camera.PreviewScaleMode.FIT,
+                            onClick = { viewModel.setPreviewScaleMode(com.astrostack.app.camera.PreviewScaleMode.FIT) },
+                            label = { Text("Fit (Black Bars / Full FOV)", fontSize = 11.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                                selectedLabelColor = MaterialTheme.colorScheme.primary
+                            )
+                        )
+                        FilterChip(
+                            selected = uiState.previewScaleMode == com.astrostack.app.camera.PreviewScaleMode.FILL,
+                            onClick = { viewModel.setPreviewScaleMode(com.astrostack.app.camera.PreviewScaleMode.FILL) },
+                            label = { Text("Fill (Crop to Screen)", fontSize = 11.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                                selectedLabelColor = MaterialTheme.colorScheme.primary
+                            )
+                        )
+                    }
+                }
+            }
+
+            // ── Section 5: Sensor Calibration ─────────────────────────────────
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.04f)),
                 shape = RoundedCornerShape(12.dp)
@@ -837,20 +873,42 @@ private fun AstroSettingsBottomSheet(
 private fun CameraPreview(
     modifier: Modifier,
     sensorAspectRatio: Float,
+    scaleMode: com.astrostack.app.camera.PreviewScaleMode,
     onSurfaceReady: (android.view.Surface) -> Unit,
 ) {
-    BoxWithConstraints(modifier.clipToBounds()) {
-        val portraitAspect = 1f / sensorAspectRatio
-        val screenAspect   = maxWidth.value / maxHeight.value
+    BoxWithConstraints(
+        modifier = modifier
+            .fillMaxSize()
+            .clipToBounds()
+            .background(Color.Black)
+    ) {
+        val isLandscape = maxWidth > maxHeight
+        // In portrait mode, the sensor image is rotated 90°, so effective aspect is 1 / sensorAspectRatio (~0.75).
+        // In landscape mode, effective aspect is sensorAspectRatio (~1.333).
+        val targetAspect = if (isLandscape) sensorAspectRatio else (1f / sensorAspectRatio)
+        val screenAspect = maxWidth.value / maxHeight.value
 
         val viewWidth: Dp
         val viewHeight: Dp
-        if (portraitAspect > screenAspect) {
-            viewHeight = maxHeight
-            viewWidth  = maxHeight * portraitAspect
+
+        if (scaleMode == com.astrostack.app.camera.PreviewScaleMode.FILL) {
+            // Crop to fill entire screen (no black bars)
+            if (targetAspect > screenAspect) {
+                viewHeight = maxHeight
+                viewWidth = maxHeight * targetAspect
+            } else {
+                viewWidth = maxWidth
+                viewHeight = maxWidth / targetAspect
+            }
         } else {
-            viewWidth  = maxWidth
-            viewHeight = maxWidth / portraitAspect
+            // Fit entire frame with black bars (letterbox/pillarbox, full FOV preserved)
+            if (targetAspect > screenAspect) {
+                viewWidth = maxWidth
+                viewHeight = maxWidth / targetAspect
+            } else {
+                viewHeight = maxHeight
+                viewWidth = maxHeight * targetAspect
+            }
         }
 
         AndroidView(

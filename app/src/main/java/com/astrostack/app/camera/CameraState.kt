@@ -38,6 +38,13 @@ enum class StretchType {
     ARCSINH
 }
 
+enum class PreviewScaleMode {
+    /** Show entire camera frame with black bars (no cropping, zero distortion) */
+    FIT,
+    /** Crop camera frame to fill entire screen (no black bars, zero distortion) */
+    FILL
+}
+
 // ─── Exposure presets (shutter speed, ISO pairs) ─────────────────────────────
 
 data class ExposurePreset(

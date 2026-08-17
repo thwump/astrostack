@@ -13,6 +13,7 @@ import com.astrostack.app.camera.CaptureSessionState
 import com.astrostack.app.camera.CaptureSettings
 import com.astrostack.app.camera.ExposurePreset
 import com.astrostack.app.camera.PreviewState
+import com.astrostack.app.camera.PreviewScaleMode
 import com.astrostack.app.camera.StretchType
 import com.astrostack.app.stacking.DriftHandling
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -42,6 +43,7 @@ data class CameraUiState(
     val stretchType: StretchType = StretchType.HISTOGRAM,
     val enableGradientRemoval: Boolean = false,
     val enableDualLayer: Boolean = false,
+    val previewScaleMode: PreviewScaleMode = PreviewScaleMode.FIT,
     val hasMasterDark: Boolean = false,
     val hasMasterFlat: Boolean = false,
     val availableCameras: List<CameraCapabilities> = emptyList(),
@@ -167,6 +169,10 @@ class CameraViewModel @Inject constructor(
 
     fun setEnableDualLayer(enabled: Boolean) {
         _uiState.update { it.copy(enableDualLayer = enabled) }
+    }
+
+    fun setPreviewScaleMode(mode: com.astrostack.app.camera.PreviewScaleMode) {
+        _uiState.update { it.copy(previewScaleMode = mode) }
     }
 
     // ─── Calibration ──────────────────────────────────────────────────────────
