@@ -144,8 +144,18 @@ class RawCameraManager @Inject constructor(
                     val pHasOis = pOisModes?.contains(CameraCharacteristics.LENS_OPTICAL_STABILIZATION_MODE_ON) == true
                     val pApertures = pChars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_APERTURES)
                     val pAperture = pApertures?.firstOrNull() ?: 1.8f
+                    val pPreviewSizes = pMap?.getOutputSizes(android.view.SurfaceHolder::class.java) ?: emptyArray()
+                    val pSensorAspect = if (pLargest.height > 0) pLargest.width.toDouble() / pLargest.height.toDouble() else (4.0 / 3.0)
+                    val pBestPreview = pPreviewSizes
+                        .filter { size ->
+                            val aspect = size.width.toDouble() / size.height.toDouble()
+                            kotlin.math.abs(aspect - pSensorAspect) < 0.05
+                        }
+                        .maxByOrNull { it.width * it.height }
+                        ?: pPreviewSizes.maxByOrNull { it.width * it.height }
+                        ?: android.util.Size(1440, 1080)
 
-                    android.util.Log.i("AstroStack", "Adding Physical Camera Candidate: pid=$pid, logicalId=$id, rawSize=${pLargest.width}x${pLargest.height}")
+                    android.util.Log.i("AstroStack", "Adding Physical Camera Candidate: pid=$pid, logicalId=$id, rawSize=${pLargest.width}x${pLargest.height}, previewSize=${pBestPreview.width}x${pBestPreview.height}")
 
                     val cap = CameraCapabilities(
                         cameraId = id,
@@ -161,6 +171,8 @@ class RawCameraManager @Inject constructor(
                         characteristics = pChars,
                         supportsNightExtension = hasNightExtension,
                         aperture = pAperture,
+                        previewWidth = pBestPreview.width,
+                        previewHeight = pBestPreview.height,
                     )
                     candidates.add(Candidate(cap, priority))
                     physicalCandidatesAdded++
@@ -172,6 +184,17 @@ class RawCameraManager @Inject constructor(
                 val apertures = chars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_APERTURES)
                 val aperture = apertures?.firstOrNull() ?: 1.8f
                 
+                val previewSizes = map?.getOutputSizes(android.view.SurfaceHolder::class.java) ?: emptyArray()
+                val sensorAspect = if ((largest?.height ?: 0) > 0) (largest?.width ?: 4).toDouble() / (largest?.height ?: 3).toDouble() else (4.0 / 3.0)
+                val bestPreview = previewSizes
+                    .filter { size ->
+                        val aspect = size.width.toDouble() / size.height.toDouble()
+                        kotlin.math.abs(aspect - sensorAspect) < 0.05
+                    }
+                    .maxByOrNull { it.width * it.height }
+                    ?: previewSizes.maxByOrNull { it.width * it.height }
+                    ?: android.util.Size(1440, 1080)
+
                 val cap = CameraCapabilities(
                     cameraId = id,
                     physicalCameraId = null,
@@ -186,6 +209,8 @@ class RawCameraManager @Inject constructor(
                     characteristics = chars,
                     supportsNightExtension = hasNightExtension,
                     aperture = aperture,
+                    previewWidth = bestPreview.width,
+                    previewHeight = bestPreview.height,
                 )
                 candidates.add(Candidate(cap, priority))
             }

@@ -85,8 +85,8 @@ fun CameraScreen(
         // ── Live viewfinder ──────────────────────────────────────────────────
         CameraPreview(
             modifier = Modifier.fillMaxSize(),
-            sensorWidth = uiState.capabilities?.rawSensorWidth ?: 4080,
-            sensorHeight = uiState.capabilities?.rawSensorHeight ?: 3072,
+            previewWidth = uiState.capabilities?.previewWidth ?: 1440,
+            previewHeight = uiState.capabilities?.previewHeight ?: 1080,
             scaleMode = uiState.previewScaleMode,
             onSurfaceReady = { surface -> viewModel.openCamera(surface) },
         )
@@ -872,15 +872,13 @@ private fun AstroSettingsBottomSheet(
 @Composable
 private fun CameraPreview(
     modifier: Modifier,
-    sensorWidth: Int,
-    sensorHeight: Int,
+    previewWidth: Int,
+    previewHeight: Int,
     scaleMode: com.astrostack.app.camera.PreviewScaleMode,
     onSurfaceReady: (android.view.Surface) -> Unit,
 ) {
-    // Camera sensor is 4:3 landscape (sensorWidth x sensorHeight).
-    // In portrait orientation on Android, the Camera HAL outputs the preview in 3:4 aspect ratio (sensorHeight / sensorWidth).
-    val sensorAspect = if (sensorHeight > 0) sensorWidth.toFloat() / sensorHeight.toFloat() else (4f / 3f)
-    val portraitTargetAspect = 1f / sensorAspect // ~0.75 (3:4)
+    // In portrait orientation on Android, the Camera HAL outputs the preview in 3:4 aspect ratio (previewHeight / previewWidth).
+    val portraitTargetAspect = if (previewWidth > 0) previewHeight.toFloat() / previewWidth.toFloat() else 0.75f
 
     BoxWithConstraints(
         modifier = modifier
@@ -909,6 +907,7 @@ private fun CameraPreview(
         AndroidView(
             factory = { ctx ->
                 SurfaceView(ctx).also { sv ->
+                    sv.holder.setFixedSize(previewWidth, previewHeight)
                     sv.holder.addCallback(object : SurfaceHolder.Callback {
                         override fun surfaceCreated(holder: SurfaceHolder) {
                             onSurfaceReady(holder.surface)
