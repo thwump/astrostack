@@ -184,6 +184,13 @@ This walkthrough outlines all the major enhancements integrated into AstroStack 
 - **Dedicated UI Toggle:** Added **Dual-Layer Landscape Mode** switch under Stacking Settings. When switched **OFF**, the app concentrates 100% on full-frame pure star tracking for deep-sky imaging; when switched **ON**, dual-layer foreground/sky compositing is active.
 - **Location**: [HorizonDetector.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/stacking/HorizonDetector.kt), [CameraScreen.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/ui/CameraScreen.kt), [CaptureController.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/camera/CaptureController.kt), [ImageStacker.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/stacking/ImageStacker.kt), [CameraViewModel.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/viewmodel/CameraViewModel.kt)
 
+### 30. Minimalist Viewfinder UI & Settings Sheet Overhaul
+- **Clean Astrophotography Viewport:** Replaced the sprawling bottom controls overlay with a full, unobstructed night sky viewfinder.
+- **Floating Lens Switcher Pills:** Consolidated camera lens selection into compact floating zoom pill chips (`0.5x`, `1x`, `5x`) taking up minimal screen space with zero extra vertical padding or unnecessary paragraphs.
+- **Quick Floating Status Strip:** Placed quick exposure summary (`⏱ 4.0s • ISO 1600`) and quick focus toggle (`🌌 Infinity` / `🔍 Auto`) directly above the shutter button.
+- **Unified Settings Modal Bottom Sheet (⚙️):** Grouped all advanced astrophotography settings (Exposure & ISO sliders, NPF Tripod limits, Stacking toggles, Dual-Layer mode, Stretch modes, Gradient removal, Star threshold, RAW DNG storage, Dark/Flat calibration wizards) into a single, beautifully organized modal sheet that slides up on demand and disappears completely during active shooting.
+- **Location**: [CameraScreen.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/ui/CameraScreen.kt)
+
 ---
 
 ## Verification and Compile Checks
