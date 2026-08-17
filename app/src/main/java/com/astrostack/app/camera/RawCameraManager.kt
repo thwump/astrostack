@@ -344,6 +344,9 @@ class RawCameraManager @Inject constructor(
             .apply {
                 addTarget(previewSurface)
                 set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    set(CaptureRequest.DISTORTION_CORRECTION_MODE, CaptureRequest.DISTORTION_CORRECTION_MODE_HIGH_QUALITY)
+                }
                 if (autoFocus) {
                     set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
                 } else {

@@ -917,6 +917,9 @@ private fun CameraPreview(
                     })
                 }
             },
+            update = { sv ->
+                sv.holder.setFixedSize(previewWidth, previewHeight)
+            },
             modifier = Modifier.size(viewWidth, viewHeight),
         )
     }

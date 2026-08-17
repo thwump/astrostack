@@ -217,6 +217,11 @@ This walkthrough outlines all the major enhancements integrated into AstroStack 
 - **Hardware Buffer Dimension Locking:** Explicitly invoke `sv.holder.setFixedSize(previewWidth, previewHeight)` on the `SurfaceHolder`. This prevents Camera2 from defaulting to a $16:9$ ($1920 \times 1080$) stream and squeezing it into a $4:3$ container, which was causing the 33% vertical stretch along the long axis.
 - **Location**: [RawCameraManager.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/camera/RawCameraManager.kt), [CameraState.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/camera/CameraState.kt), [CameraScreen.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/ui/CameraScreen.kt)
 
+### 35. Dynamic Lens-Switch Buffer Resizing & Wide-Angle Distortion Correction
+- **Dynamic SurfaceHolder Buffer Reconfiguration:** Added `update = { sv -> sv.holder.setFixedSize(previewWidth, previewHeight) }` in Compose's `AndroidView`. Switching between lenses (0.5x, 1x, 5x) now immediately reallocates the underlying hardware buffer to match the new lens stream dimensions ($4032 \times 3024$ vs $4080 \times 3072$).
+- **Optical Lens Distortion Rectification:** Enabled `CaptureRequest.DISTORTION_CORRECTION_MODE_HIGH_QUALITY` on Camera2 repeating preview requests to correct the fisheye barrel distortion intrinsic to the ultra-wide lens.
+- **Location**: [RawCameraManager.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/camera/RawCameraManager.kt), [CameraScreen.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/ui/CameraScreen.kt)
+
 ---
 
 ## Verification and Compile Checks
