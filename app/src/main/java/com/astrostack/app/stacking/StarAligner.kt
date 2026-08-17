@@ -209,40 +209,53 @@ class StarAligner @Inject constructor() {
      * Estimate rigid transformation (translation and rotation) mapping [targetStars] to [referenceStars].
      * Uses closed-form covariance solver over centroids, with RANSAC-like outlier rejection.
      */
+    /**
+     * Estimate rigid transformation (translation and rotation) mapping [targetStars] to [referenceStars].
+     * Uses 2D pair displacement histogram for initial translation, followed by closed-form SVD solver for rotation.
+     */
     fun estimateRigidTransform(
         referenceStars: List<Star>,
         targetStars: List<Star>,
         width: Int,
         height: Int,
-        searchRadius: Float = 50f,
+        searchRadius: Float = 250f,
     ): RigidTransform {
         if (referenceStars.isEmpty() || targetStars.isEmpty()) return RigidTransform(0f, 0f, 0f)
 
         val cx = width / 2f
         val cy = height / 2f
 
-        // Step 1: Establish initial matches based on proximity (under assumption of small rotation)
+        // Step 1: Compute coarse global translation using 2D pair displacement histogram
+        val initialTrans = computeTranslation(referenceStars, targetStars, searchRadius)
+
+        // Step 2: Establish matches with initial translation applied
         val matches = mutableListOf<Pair<Star, Star>>()
+        val matchRadius = 15f
         for (ref in referenceStars) {
+            val shiftedRefX = ref.x + initialTrans.x
+            val shiftedRefY = ref.y + initialTrans.y
+
             val nearest = targetStars.minByOrNull { t ->
-                val dx = t.x - ref.x; val dy = t.y - ref.y; dx * dx + dy * dy
+                val dx = t.x - shiftedRefX
+                val dy = t.y - shiftedRefY
+                dx * dx + dy * dy
             } ?: continue
-            val dist = sqrt((nearest.x - ref.x).let { it * it } + (nearest.y - ref.y).let { it * it })
-            if (dist <= searchRadius) {
+
+            val dist = sqrt((nearest.x - shiftedRefX).let { it * it } + (nearest.y - shiftedRefY).let { it * it })
+            if (dist <= matchRadius) {
                 matches.add(Pair(ref, nearest))
             }
         }
 
         if (matches.size < 3) {
             // Fall back to pure translation
-            val trans = computeTranslation(referenceStars, targetStars, searchRadius)
-            return RigidTransform(trans.x, trans.y, 0f)
+            return RigidTransform(initialTrans.x, initialTrans.y, 0f)
         }
 
-        // Step 2: Solve rigid transform on raw matches
+        // Step 3: Solve rigid transform on raw matches
         var transform = solveRigid(matches, cx, cy)
 
-        // Step 3: Filter outliers (keep errors < 5px)
+        // Step 4: Filter outliers (keep errors < 4px)
         val inliers = matches.filter { (ref, target) ->
             val rx = ref.x - cx
             val ry = ref.y - cy
@@ -254,7 +267,7 @@ class StarAligner @Inject constructor() {
 
             val dx = target.x - projX
             val dy = target.y - projY
-            sqrt(dx * dx + dy * dy) < 5f
+            sqrt(dx * dx + dy * dy) < 4f
         }
 
         if (inliers.size >= 3 && inliers.size < matches.size) {
@@ -263,6 +276,25 @@ class StarAligner @Inject constructor() {
         }
 
         return transform
+    }
+
+    /**
+     * Applies [transform] (translation + rotation around center) to [src] bitmap.
+     */
+    fun applyRigidTransform(src: Bitmap, transform: RigidTransform): Bitmap {
+        if (transform.tx == 0f && transform.ty == 0f && transform.angleRad == 0f) return src
+        val dst = Bitmap.createBitmap(src.width, src.height, Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(dst)
+        val matrix = android.graphics.Matrix().also {
+            val cx = src.width / 2f
+            val cy = src.height / 2f
+            it.postTranslate(-cx, -cy)
+            val angleDeg = Math.toDegrees(transform.angleRad.toDouble()).toFloat()
+            it.postRotate(angleDeg)
+            it.postTranslate(cx + transform.tx, cy + transform.ty)
+        }
+        canvas.drawBitmap(src, matrix, android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG))
+        return dst
     }
 
     private fun solveRigid(matches: List<Pair<Star, Star>>, cx: Float, cy: Float): RigidTransform {

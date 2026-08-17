@@ -43,17 +43,17 @@ class HistogramStretch @Inject constructor() {
             b[i] = (pixels[i] and 0xFF) / 255f
         }
 
-        // Compute stretch parameters from LUMINANCE so that R, G, B all receive
-        // the SAME black-point and midtone.  This preserves colour ratios and
-        // prevents per-channel clipping artefacts (e.g. blue going to zero under
-        // warm indoor lighting when channels have different distributions).
+        // Apply automatic background sky neutralization to eliminate purple/pink/green casts
+        neutralizeBackground(r, g, b)
+
+        // Compute stretch parameters from LUMINANCE
         val luma = FloatArray(pixels.size) { i ->
             0.299f * r[i] + 0.587f * g[i] + 0.114f * b[i]
         }
         val params = computeStretchParams(luma, shadowClip)
             ?: return bitmap.copy(bitmap.config ?: Bitmap.Config.ARGB_8888, false)
 
-        // Apply the shared stretch to every channel
+        // Apply the stretch to every channel
         for (ch in arrayOf(r, g, b)) {
             for (i in ch.indices) {
                 val v = ((ch[i] - params.blackPoint) / params.range).coerceIn(0f, 1f)
@@ -75,150 +75,7 @@ class HistogramStretch @Inject constructor() {
     }
 
     /**
-     * Manual stretch with explicit black, midtone, and white points.
-     *
-     * @param blackPoint  Values ≤ this map to 0 (normalised [0,1]).
-     * @param midtone     Target output value for the input midtone (gamma).
-     * @param whitePoint  Values ≥ this map to 1 (normalised [0,1]).
-     */
-    fun manualStretch(
-        bitmap: Bitmap,
-        blackPoint: Float = 0.0f,
-        midtone: Float = 0.5f,
-        whitePoint: Float = 1.0f,
-    ): Bitmap {
-        require(blackPoint < whitePoint) { "blackPoint must be < whitePoint" }
-        val width = bitmap.width
-        val height = bitmap.height
-        val pixels = IntArray(width * height)
-        bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
-
-        val out = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        val outPixels = IntArray(pixels.size)
-        val range = whitePoint - blackPoint
-
-        for (i in pixels.indices) {
-            val ri = applyMtf(((((pixels[i] shr 16) and 0xFF) / 255f - blackPoint) / range).coerceIn(0f, 1f), midtone)
-            val gi = applyMtf(((((pixels[i] shr 8) and 0xFF) / 255f - blackPoint) / range).coerceIn(0f, 1f), midtone)
-            val bi = applyMtf((((pixels[i] and 0xFF) / 255f - blackPoint) / range).coerceIn(0f, 1f), midtone)
-
-            outPixels[i] = (0xFF shl 24) or
-                    ((ri * 255 + 0.5f).toInt() shl 16) or
-                    ((gi * 255 + 0.5f).toInt() shl 8) or
-                    (bi * 255 + 0.5f).toInt()
-        }
-        out.setPixels(outPixels, 0, width, 0, 0, width, height)
-        return out
-    }
-
-    // ─── Internal helpers ─────────────────────────────────────────────────────
-
-    /** Encapsulates the three numbers needed to apply a stretch. */
-    private data class StretchParams(val blackPoint: Float, val midtone: Float, val range: Float)
-
-    /**
-     * Compute black-point, midtone and range for [channel].
-     * Returns null for degenerate inputs (uniform, white-clipped, or bad midtone).
-     */
-    private fun computeStretchParams(channel: FloatArray, shadowClip: Float): StretchParams? {
-        val med = median(channel)
-        val mad = mad(channel, med)
-
-        // Guard 1: uniform / nearly-uniform (MAD ≈ 0) → nothing to stretch.
-        if (mad < 1e-4f) return null
-
-        val blackPoint = max(0f, med - shadowClip * mad)
-        val range = 1f - blackPoint
-
-        // Guard 2: white-clipped (range → 0) → would cause x/0 = NaN.
-        if (range < 1e-3f) return null
-
-        val midtone = calculateMidtone(med - blackPoint)
-
-        // Guard 3: degenerate midtone from calculateMidtone.
-        if (midtone <= 0f || !midtone.isFinite()) return null
-
-        return StretchParams(blackPoint, midtone, range)
-    }
-
-    /** Per-channel stretch (used only for manual/LUT paths; autoStretch uses luminance-linked). */
-    private fun stretchChannel(channel: FloatArray, shadowClip: Float) {
-        val p = computeStretchParams(channel, shadowClip) ?: return
-        for (i in channel.indices) {
-            val v = ((channel[i] - p.blackPoint) / p.range).coerceIn(0f, 1f)
-            channel[i] = applyMtf(v, p.midtone)
-        }
-    }
-
-    /**
-     * Midtone transfer function (MTF).
-     * Maps input [x] through a gamma-like curve targeting [midtone].
-     */
-    private fun applyMtf(x: Float, midtone: Float): Float {
-        if (x == 0f) return 0f
-        if (x == 1f) return 1f
-        if (midtone == 0.5f) return x
-        return ((midtone - 1) * x) / ((2 * midtone - 1) * x - midtone)
-    }
-
-    /**
-     * Compute auto-MTF midtone value targeting output of 0.25 (keeps
-     * background dark, stretches faint nebulosity up).
-     */
-    private fun calculateMidtone(normalizedMedian: Float): Float {
-        if (normalizedMedian <= 0f) return 0.5f
-        // Solve for m: 0.25 = MTF(normalizedMedian, m)
-        // m = normalizedMedian / (2 * normalizedMedian - 1 + 4 * normalizedMedian / 1)
-        // Simplified target: use 0.25 as the desired midpoint output
-        val target = 0.25f
-        val x = normalizedMedian.coerceIn(0.0001f, 0.9999f)
-        return (target * x) / ((2 * target - 1) * x + target)
-    }
-
-    private fun median(arr: FloatArray): Float {
-        val sorted = arr.copyOf()
-        sorted.sort()
-        val mid = sorted.size / 2
-        return if (sorted.size % 2 == 0) (sorted[mid - 1] + sorted[mid]) / 2f else sorted[mid]
-    }
-
-    private fun mad(arr: FloatArray, median: Float): Float {
-        val deviations = FloatArray(arr.size) { Math.abs(arr[it] - median) }
-        return median(deviations)
-    }
-
-    // ─── Build an 8-bit LUT for fast per-pixel application ────────────────────
-
-    fun buildStretchLut(blackPoint: Float, midtone: Float, whitePoint: Float): IntArray {
-        val lut = IntArray(256)
-        val range = whitePoint - blackPoint
-        for (i in 0..255) {
-            val v = ((i / 255f - blackPoint) / range).coerceIn(0f, 1f)
-            lut[i] = (applyMtf(v, midtone) * 255 + 0.5f).toInt().coerceIn(0, 255)
-        }
-        return lut
-    }
-
-    /** Apply a pre-built [lut] to every channel of [bitmap]. */
-    fun applyLut(bitmap: Bitmap, lut: IntArray): Bitmap {
-        val width = bitmap.width
-        val height = bitmap.height
-        val pixels = IntArray(width * height)
-        bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
-        for (i in pixels.indices) {
-            val r = lut[(pixels[i] shr 16) and 0xFF]
-            val g = lut[(pixels[i] shr 8) and 0xFF]
-            val b = lut[pixels[i] and 0xFF]
-            pixels[i] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
-        }
-        val out = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        out.setPixels(pixels, 0, width, 0, 0, width, height)
-        return out
-    }
-
-    /**
-     * Arcsinh color-preserving stretch.
-     * Computes luminance, stretches it using inverse hyperbolic sine, and scales channels proportionally.
+     * Arcsinh color-preserving stretch with background neutralization.
      */
     fun arcsinhStretch(bitmap: Bitmap, shadowClip: Float = 1.5f, stretchFactor: Float = 50f): Bitmap {
         val width = bitmap.width
@@ -229,13 +86,17 @@ class HistogramStretch @Inject constructor() {
         val r = FloatArray(pixels.size)
         val g = FloatArray(pixels.size)
         val b = FloatArray(pixels.size)
-        val luma = FloatArray(pixels.size)
 
         for (i in pixels.indices) {
             r[i] = ((pixels[i] shr 16) and 0xFF) / 255f
             g[i] = ((pixels[i] shr 8) and 0xFF) / 255f
             b[i] = (pixels[i] and 0xFF) / 255f
-            luma[i] = 0.2126f * r[i] + 0.7152f * g[i] + 0.0722f * b[i]
+        }
+
+        neutralizeBackground(r, g, b)
+
+        val luma = FloatArray(pixels.size) { i ->
+            0.2126f * r[i] + 0.7152f * g[i] + 0.0722f * b[i]
         }
 
         val med = median(luma)
@@ -271,7 +132,72 @@ class HistogramStretch @Inject constructor() {
         return out
     }
 
+    /**
+     * Equalizes median background intensities across R, G, and B channels to neutralize sky color casts.
+     */
+    fun neutralizeBackground(r: FloatArray, g: FloatArray, b: FloatArray) {
+        val medR = median(r)
+        val medG = median(g)
+        val medB = median(b)
+        val targetMed = medG.coerceAtLeast(1e-4f)
+
+        val scaleR = targetMed / max(medR, 1e-4f)
+        val scaleB = targetMed / max(medB, 1e-4f)
+
+        for (i in r.indices) {
+            r[i] = (r[i] * scaleR).coerceIn(0f, 1f)
+            b[i] = (b[i] * scaleB).coerceIn(0f, 1f)
+        }
+    }
+
     private fun asinh(x: Double): Double {
         return kotlin.math.ln(x + kotlin.math.sqrt(x * x + 1.0))
+    }
+
+    // ─── Internal helpers ─────────────────────────────────────────────────────
+
+    private data class StretchParams(val blackPoint: Float, val midtone: Float, val range: Float)
+
+    private fun computeStretchParams(channel: FloatArray, shadowClip: Float): StretchParams? {
+        val med = median(channel)
+        val mad = mad(channel, med)
+
+        if (mad < 1e-4f) return null
+
+        val blackPoint = max(0f, med - shadowClip * mad)
+        val range = 1f - blackPoint
+
+        if (range < 1e-3f) return null
+
+        val midtone = calculateMidtone(med - blackPoint)
+        if (midtone <= 0f || !midtone.isFinite()) return null
+
+        return StretchParams(blackPoint, midtone, range)
+    }
+
+    private fun applyMtf(x: Float, midtone: Float): Float {
+        if (x == 0f) return 0f
+        if (x == 1f) return 1f
+        if (midtone == 0.5f) return x
+        return ((midtone - 1) * x) / ((2 * midtone - 1) * x - midtone)
+    }
+
+    private fun calculateMidtone(normalizedMedian: Float): Float {
+        if (normalizedMedian <= 0f) return 0.5f
+        val target = 0.25f
+        val x = normalizedMedian.coerceIn(0.0001f, 0.9999f)
+        return (target * x) / ((2 * target - 1) * x + target)
+    }
+
+    private fun median(arr: FloatArray): Float {
+        val sorted = arr.copyOf()
+        sorted.sort()
+        val mid = sorted.size / 2
+        return if (sorted.size % 2 == 0) (sorted[mid - 1] + sorted[mid]) / 2f else sorted[mid]
+    }
+
+    private fun mad(arr: FloatArray, median: Float): Float {
+        val deviations = FloatArray(arr.size) { Math.abs(arr[it] - median) }
+        return median(deviations)
     }
 }

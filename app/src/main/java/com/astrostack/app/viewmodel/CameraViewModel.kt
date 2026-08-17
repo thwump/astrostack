@@ -36,7 +36,7 @@ data class CameraUiState(
     val autoFocusEnabled: Boolean = false,
     val saveAllPhotos: Boolean = false,
     val stackPhotos: Boolean = true,
-    val starThreshold: Int = 180,
+    val starThreshold: Int = -1,
     val minStarCount: Int = 5,
     val driftHandling: DriftHandling = DriftHandling.CROP,
     val stretchType: StretchType = StretchType.HISTOGRAM,

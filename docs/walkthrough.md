@@ -170,6 +170,13 @@ This walkthrough outlines all the major enhancements integrated into AstroStack 
 - **2D Star-Pair Displacement Histogram Matching:** Replaced nearest-neighbor greedy matching with a global 2D displacement vector histogram matching algorithm. By computing displacement vectors $(t.x - ref.x, t.y - ref.y)$ across all star pairs and finding the dominant mode, the aligner uniquely identifies true star displacement (e.g. 65 matched pairs) even under large drift distances or sky motion.
 - **Location**: [StarAligner.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/stacking/StarAligner.kt)
 
+### 28. Auto-Adaptive Live Rigid Alignment $(dx, dy, \theta)$ & Background Color Neutralization
+- **Auto-Adaptive Star Detection by Default:** Changed default `starThreshold` to `-1` across all viewmodels and configs so the 98.5th percentile dynamic threshold activates automatically without requiring manual slider adjustments.
+- **Full Rigid Transform Live Alignment:** Upgraded `CaptureController.kt` to use `estimateRigidTransform(refStars, stars, width, height)` and `applyRigidTransform()`, correcting for both spatial drift $(dx, dy)$ and celestial field rotation $(\theta)$ around Polaris/the celestial pole in real time.
+- **Automatic Background Sky Neutralization:** Updated `HistogramStretch.kt` (`autoStretch` and `arcsinhStretch`) to automatically balance the background sky medians across Red, Green, and Blue channels. This eliminates purple/magenta/green casts and produces a rich, deep-space dark background in the live preview and final exports.
+- **Synthetic Flat Vignetting Fallback:** Added automatic quadratic radial flat field correction $(V(r) = 1.0 - k \cdot (r/r_{max})^2)$ when no physical master flat is present, removing lens corner darkening on any phone.
+- **Location**: [CaptureController.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/camera/CaptureController.kt), [HistogramStretch.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/stacking/HistogramStretch.kt), [StarAligner.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/stacking/StarAligner.kt), and [ImageStacker.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/stacking/ImageStacker.kt)
+
 ---
 
 ## Verification and Compile Checks

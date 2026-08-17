@@ -457,14 +457,14 @@ fun CameraScreen(
                                     ) {
                                         Text("Star Sensitivity Threshold", color = Color.Gray, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                         Text(
-                                            text = "${uiState.starThreshold} (lower = more sensitive)",
+                                            text = if (uiState.starThreshold < 0) "Auto (Adaptive)" else "${uiState.starThreshold} (lower = sensitive)",
                                             color = MaterialTheme.colorScheme.primary,
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold
                                         )
                                     }
                                     Slider(
-                                        value = uiState.starThreshold.toFloat(),
+                                        value = if (uiState.starThreshold < 0) 100f else uiState.starThreshold.toFloat(),
                                         onValueChange = { viewModel.setStarThreshold(it.roundToInt()) },
                                         valueRange = 20f..255f,
                                         modifier = Modifier.fillMaxWidth()

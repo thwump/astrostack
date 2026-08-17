@@ -64,7 +64,7 @@ class ImageStacker @Inject constructor(
             }
         }
 
-        // Load and apply Master Flat if available
+        // Load and apply Master Flat if available, otherwise apply synthetic flat
         val masterFlatFile = File(context.filesDir, "calibration/master_flat_full.png")
         if (masterFlatFile.exists()) {
             val flatBmp = BitmapFactory.decodeFile(masterFlatFile.absolutePath)
@@ -72,6 +72,8 @@ class ImageStacker @Inject constructor(
                 bitmaps.forEach { divideFlat(it, flatBmp) }
                 flatBmp.recycle()
             }
+        } else {
+            bitmaps.forEach { applySyntheticFlatCorrection(it) }
         }
 
         // Apply cosmetic hot pixel correction
@@ -525,6 +527,35 @@ class ImageStacker @Inject constructor(
         }
         return BitmapFactory.decodeFile(file.absolutePath, opts)
             ?: throw IllegalArgumentException("Failed to decode ${file.name}")
+    }
+
+    private fun applySyntheticFlatCorrection(bitmap: Bitmap, strength: Float = 0.35f) {
+        val width = bitmap.width
+        val height = bitmap.height
+        val cx = width / 2f
+        val cy = height / 2f
+        val rMax = Math.hypot(cx.toDouble(), cy.toDouble()).toFloat()
+
+        val pixels = IntArray(width * height)
+        bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
+
+        for (y in 0 until height) {
+            val dy = y - cy
+            for (x in 0 until width) {
+                val dx = x - cx
+                val rNorm = Math.hypot(dx.toDouble(), dy.toDouble()).toFloat() / rMax
+                val flatGain = (1.0f - strength * rNorm * rNorm).coerceIn(0.1f, 1.0f)
+
+                val idx = y * width + x
+                val pix = pixels[idx]
+                val r = (((pix shr 16) and 0xFF) / flatGain).toInt().coerceIn(0, 255)
+                val g = (((pix shr 8) and 0xFF) / flatGain).toInt().coerceIn(0, 255)
+                val b = ((pix and 0xFF) / flatGain).toInt().coerceIn(0, 255)
+
+                pixels[idx] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
+            }
+        }
+        bitmap.setPixels(pixels, 0, width, 0, 0, width, height)
     }
 }
 

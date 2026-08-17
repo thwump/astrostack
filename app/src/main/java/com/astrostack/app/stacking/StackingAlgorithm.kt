@@ -103,7 +103,7 @@ data class StackingConfig(
     /** Minimum number of stars required to stack a frame (quality rejection). */
     val minStarCount: Int = 8,
     /** Star detection threshold sensitivity [20, 255] */
-    val starThreshold: Int = 180,
+    val starThreshold: Int = -1,
     val stretchType: StretchType = StretchType.HISTOGRAM,
     val enableGradientRemoval: Boolean = false,
 )

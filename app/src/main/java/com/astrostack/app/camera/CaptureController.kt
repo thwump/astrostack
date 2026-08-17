@@ -272,7 +272,7 @@ class CaptureController @Inject constructor(
                                         }
                                     }
                                 }
-                                // Apply master flat correction if available
+                                // Apply master flat correction if available, otherwise apply synthetic flat
                                 if (_hasMasterFlat.value) {
                                     val previewFlatFile = File(context.filesDir, "calibration/master_flat_preview.png")
                                     if (previewFlatFile.exists()) {
@@ -282,6 +282,8 @@ class CaptureController @Inject constructor(
                                             flatBmp.recycle()
                                         }
                                     }
+                                } else {
+                                    applySyntheticFlatCorrection(bmp)
                                 }
                                 // Apply cosmetic hot pixel correction
                                 applyCosmeticCorrection(bmp)
@@ -290,10 +292,10 @@ class CaptureController @Inject constructor(
                                     gradientRemoval.removeGradient(bmp)
                                 }
 
-                                val stars = starAligner.detectStars(bmp, starThreshold = settings.starThreshold, maxStars = 50)
-                                if (stars.size < settings.minStarCount) {
+                                val stars = starAligner.detectStars(bmp, starThreshold = settings.starThreshold, maxStars = 100)
+                                if (stars.size < 3 && liveAccumulator == null) {
                                     bmp.recycle()
-                                    val msg = "Frame $totalCaptured: REJECTED. Detected ${stars.size} stars < minimum ${settings.minStarCount}."
+                                    val msg = "Frame $totalCaptured: REJECTED. Detected ${stars.size} stars < minimum 3 for reference frame initialization."
                                     android.util.Log.w("AstroStack", msg)
                                     withContext(Dispatchers.IO) {
                                         diagWriter?.println(msg)
@@ -345,9 +347,9 @@ class CaptureController @Inject constructor(
                                     }
                                 } else {
                                     val targetFwhm = starAligner.calculateAverageFwhm(bmp, stars)
-                                    if (referenceFwhm > 0f && targetFwhm > referenceFwhm * 1.4f) {
+                                    if (referenceFwhm > 0f && targetFwhm > referenceFwhm * 2.5f) {
                                         bmp.recycle()
-                                        val msg = "Frame $totalCaptured: REJECTED. Blurry frame (FWHM = %.2fpx > 1.4 * Ref FWHM = %.2fpx).".format(targetFwhm, referenceFwhm)
+                                        val msg = "Frame $totalCaptured: REJECTED. Blurry frame (FWHM = %.2fpx > 2.5 * Ref FWHM = %.2fpx).".format(targetFwhm, referenceFwhm)
                                         android.util.Log.w("AstroStack", msg)
                                         withContext(Dispatchers.IO) {
                                             diagWriter?.println(msg)
@@ -359,24 +361,25 @@ class CaptureController @Inject constructor(
                                         referenceFwhm = targetFwhm
                                     }
 
-                                    val offset = starAligner.computeTranslation(referenceStars!!, stars)
-                                    val qual = starAligner.alignmentQuality(referenceStars!!, stars)
-                                    val msg = "Frame $totalCaptured: ALIGNED. Offset = (${offset.x}, ${offset.y}), Match Quality = ${(qual * 100).toInt()}% (Detected ${stars.size} stars, FWHM = %.2fpx).".format(targetFwhm)
+                                    val transform = if (stars.size >= 3) {
+                                        starAligner.estimateRigidTransform(referenceStars!!, stars, liveWidth, liveHeight)
+                                    } else {
+                                        StarAligner.RigidTransform(0f, 0f, 0f)
+                                    }
+                                    val qual = if (stars.size >= 3) {
+                                        starAligner.rigidAlignmentQuality(referenceStars!!, stars, liveWidth, liveHeight)
+                                    } else 1.0f
+
+                                    val angleDeg = Math.toDegrees(transform.angleRad.toDouble()).toFloat()
+                                    val msg = "Frame $totalCaptured: ALIGNED. Shift = (%.2fpx, %.2fpx), Rot = %.3f°, Match Quality = %d%% (Detected %d stars, FWHM = %.2fpx)."
+                                        .format(transform.tx, transform.ty, angleDeg, (qual * 100).toInt(), stars.size, targetFwhm)
                                     android.util.Log.d("AstroStack", msg)
                                     withContext(Dispatchers.IO) {
                                         diagWriter?.println(msg)
                                         diagWriter?.flush()
                                     }
 
-                                    val alignedBmp = if (offset.x != 0f || offset.y != 0f) {
-                                        val dst = Bitmap.createBitmap(liveWidth, liveHeight, Bitmap.Config.ARGB_8888)
-                                        val canvas = android.graphics.Canvas(dst)
-                                        val matrix = android.graphics.Matrix().also { it.setTranslate(offset.x, offset.y) }
-                                        canvas.drawBitmap(bmp, matrix, android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG))
-                                        dst
-                                    } else {
-                                        bmp
-                                    }
+                                    val alignedBmp = starAligner.applyRigidTransform(bmp, transform)
 
                                     val size = liveWidth * liveHeight
                                     val pixels = IntArray(size)
@@ -925,6 +928,35 @@ class CaptureController @Inject constructor(
             }
         }
         src.setPixels(outPixels, 0, width, 0, 0, width, height)
+    }
+
+    private fun applySyntheticFlatCorrection(bitmap: Bitmap, strength: Float = 0.35f) {
+        val width = bitmap.width
+        val height = bitmap.height
+        val cx = width / 2f
+        val cy = height / 2f
+        val rMax = Math.hypot(cx.toDouble(), cy.toDouble()).toFloat()
+
+        val pixels = IntArray(width * height)
+        bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
+
+        for (y in 0 until height) {
+            val dy = y - cy
+            for (x in 0 until width) {
+                val dx = x - cx
+                val rNorm = Math.hypot(dx.toDouble(), dy.toDouble()).toFloat() / rMax
+                val flatGain = (1.0f - strength * rNorm * rNorm).coerceIn(0.1f, 1.0f)
+
+                val idx = y * width + x
+                val pix = pixels[idx]
+                val r = (((pix shr 16) and 0xFF) / flatGain).toInt().coerceIn(0, 255)
+                val g = (((pix shr 8) and 0xFF) / flatGain).toInt().coerceIn(0, 255)
+                val b = ((pix and 0xFF) / flatGain).toInt().coerceIn(0, 255)
+
+                pixels[idx] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
+            }
+        }
+        bitmap.setPixels(pixels, 0, width, 0, 0, width, height)
     }
 
     private fun clearLiveStack() {

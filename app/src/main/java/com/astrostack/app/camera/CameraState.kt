@@ -22,7 +22,7 @@ data class CaptureSettings(
     /** Auto focus mode enabled (e.g. for daytime tests) */
     val autoFocus: Boolean = false,
     /** Star detection threshold (lower means more sensitive, e.g. 50-100 for screens) */
-    val starThreshold: Int = 180,
+    val starThreshold: Int = -1,
     /** Minimum stars required to align and stack the frame */
     val minStarCount: Int = 5,
     /** Alignment drift handling: None, Crop, or Mosaic */
