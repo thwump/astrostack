@@ -106,6 +106,7 @@ data class CameraCapabilities(
     val aperture: Float = 1.8f,
     val previewWidth: Int = 1440,
     val previewHeight: Int = 1080,
+    val sensorOrientation: Int = 90,
 ) {
     val userLabel: String get() {
         val focalLengths = characteristics.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS)

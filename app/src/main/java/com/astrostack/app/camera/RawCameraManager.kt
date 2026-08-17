@@ -173,6 +173,7 @@ class RawCameraManager @Inject constructor(
                         aperture = pAperture,
                         previewWidth = pBestPreview.width,
                         previewHeight = pBestPreview.height,
+                        sensorOrientation = pChars.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 90,
                     )
                     candidates.add(Candidate(cap, priority))
                     physicalCandidatesAdded++
@@ -211,6 +212,7 @@ class RawCameraManager @Inject constructor(
                     aperture = aperture,
                     previewWidth = bestPreview.width,
                     previewHeight = bestPreview.height,
+                    sensorOrientation = chars.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 90,
                 )
                 candidates.add(Candidate(cap, priority))
             }

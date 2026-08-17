@@ -83,13 +83,16 @@ fun CameraScreen(
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         // ── Live viewfinder ──────────────────────────────────────────────────
-        CameraPreview(
-            modifier = Modifier.fillMaxSize(),
-            previewWidth = uiState.capabilities?.previewWidth ?: 1440,
-            previewHeight = uiState.capabilities?.previewHeight ?: 1080,
-            scaleMode = uiState.previewScaleMode,
-            onSurfaceReady = { surface -> viewModel.openCamera(surface) },
-        )
+        key(uiState.capabilities?.physicalCameraId ?: uiState.capabilities?.cameraId ?: "default") {
+            CameraPreview(
+                modifier = Modifier.fillMaxSize(),
+                previewWidth = uiState.capabilities?.previewWidth ?: 1440,
+                previewHeight = uiState.capabilities?.previewHeight ?: 1080,
+                sensorOrientation = uiState.capabilities?.sensorOrientation ?: 90,
+                scaleMode = uiState.previewScaleMode,
+                onSurfaceReady = { surface -> viewModel.openCamera(surface) },
+            )
+        }
 
         // ── Live Stack Preview Overlay ────────────────────────────────────────
         uiState.liveStackedBitmap?.let { bitmap ->
@@ -874,11 +877,17 @@ private fun CameraPreview(
     modifier: Modifier,
     previewWidth: Int,
     previewHeight: Int,
+    sensorOrientation: Int,
     scaleMode: com.astrostack.app.camera.PreviewScaleMode,
     onSurfaceReady: (android.view.Surface) -> Unit,
 ) {
-    // In portrait orientation on Android, the Camera HAL outputs the preview in 3:4 aspect ratio (previewHeight / previewWidth).
-    val portraitTargetAspect = if (previewWidth > 0) previewHeight.toFloat() / previewWidth.toFloat() else 0.75f
+    // If sensor is mounted perpendicular to portrait (90° or 270°), display aspect ratio is previewHeight / previewWidth.
+    // If sensor is mounted parallel to portrait (0° or 180°), display aspect ratio is previewWidth / previewHeight.
+    val portraitTargetAspect = if (sensorOrientation == 90 || sensorOrientation == 270) {
+        if (previewWidth > 0) previewHeight.toFloat() / previewWidth.toFloat() else 0.75f
+    } else {
+        if (previewHeight > 0) previewWidth.toFloat() / previewHeight.toFloat() else 1.333f
+    }
 
     BoxWithConstraints(
         modifier = modifier

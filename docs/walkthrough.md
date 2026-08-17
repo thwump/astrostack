@@ -222,6 +222,11 @@ This walkthrough outlines all the major enhancements integrated into AstroStack 
 - **Optical Lens Distortion Rectification:** Enabled `CaptureRequest.DISTORTION_CORRECTION_MODE_HIGH_QUALITY` on Camera2 repeating preview requests to correct the fisheye barrel distortion intrinsic to the ultra-wide lens.
 - **Location**: [RawCameraManager.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/camera/RawCameraManager.kt), [CameraScreen.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/ui/CameraScreen.kt)
 
+### 36. Isolated Keyed Surface Allocation per Lens
+- **Key-Isolated Surface Lifetime:** Wrapped `CameraPreview` in Compose's `key(activeCameraId)`. When switching to the wide-angle camera, Compose completely destroys the previous surface and creates a pristine `SurfaceView` whose `setFixedSize` matches the wide-angle lens's exact stream aspect ratio before Camera2 opens the capture session.
+- **Physical Sensor Orientation Mapping:** Propagated `CameraCharacteristics.SENSOR_ORIENTATION` through `CameraCapabilities` so that physical sensors mounted at differing angles are accurately mapped to the portrait viewport without stretching or slant.
+- **Location**: [CameraScreen.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/ui/CameraScreen.kt), [RawCameraManager.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/camera/RawCameraManager.kt), [CameraState.kt](file:///Users/rob/.gemini/antigravity/scratch/astrostack/app/src/main/java/com/astrostack/app/camera/CameraState.kt)
+
 ---
 
 ## Verification and Compile Checks
